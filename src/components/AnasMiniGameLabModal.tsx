@@ -28,6 +28,7 @@ import { MasterKineticScenarioCanvas } from './ProceduralTactileEngines';
 import { recordScenarioCompletion } from '../services/visualUserMemory';
 import { updateSessionTranquility } from '../services/sessionStore';
 import { playPeaceChime, playSoftTap } from '../utils/audio';
+import { getLearningState } from '../services/learningStateManager';
 import { routeUserQuery } from '../services/aiRouterService';
 import { evaluateBehavioralCompletion, applyEvaluationToLearningState } from '../services/aiEvaluationService';
 import { RoutingDecision } from '../types/aiRouting';
@@ -239,6 +240,29 @@ export const AnasMiniGameLabModal: React.FC<AnasMiniGameLabModalProps> = ({
         const vaultScenario = getScenarioById(routingDecision.scenario_id);
         const primarySource = vaultScenario?.approved_sources?.[0];
 
+        // Check user learning state to determine adaptive pedagogical posture
+        const currentLearningState = getLearningState();
+        const requiredConcepts = vaultScenario?.learning_criteria?.required_concepts || [];
+        const isNeedsReinforcement =
+          currentLearningState.needs_reinforcement.includes(routingDecision.scenario_id) ||
+          requiredConcepts.some((c) => currentLearningState.needs_reinforcement.includes(c));
+        const isAlreadyMastered =
+          currentLearningState.completed_scenarios.includes(routingDecision.scenario_id) ||
+          (requiredConcepts.length > 0 && requiredConcepts.every((c) => currentLearningState.mastered_concepts.includes(c)));
+
+        let adaptiveGreetingMale = `أهلاً بك يا أخي؛ فهمت موقفك، واخترت لك هذه التجربة المناسبة لتطبيق الهدي النبوي بكل سكينة.`;
+        let adaptiveGreetingFemale = `أهلاً بكِ يا أختي؛ فهمت موقفكِ، واخترت لكِ هذه التجربة المناسبة لتطبيق الهدي النبوي بكل سكينة.`;
+
+        if (isNeedsReinforcement) {
+          adaptiveGreetingMale = `أهلاً بك يا أخي؛ رفيق يقترح عليك مراجعة هذا المفهوم وتطبيقه مجدداً لترسيخ الخطوات باليقين والطمأنينة.`;
+          adaptiveGreetingFemale = `أهلاً بكِ يا أختي؛ رفيق يقترح عليكِ مراجعة هذا المفهوم وتطبيقه مجدداً لترسيخ الخطوات باليقين والطمأنينة.`;
+        } else if (isAlreadyMastered) {
+          adaptiveGreetingMale = `ما شاء الله يا أخي! سبق لك استيعاب هذا الموقف بنجاح، ونقدم لك هذه المحاكاة لتعميق الإتقان وتثبيت الاستحضار.`;
+          adaptiveGreetingFemale = `ما شاء الله يا أختي! سبق لكِ استيعاب هذا الموقف بنجاح، ونقدم لكِ هذه المحاكاة لتعميق الإتقان وتثبيت الاستحضار.`;
+        }
+
+        const activeGreeting = isFemale ? adaptiveGreetingFemale : adaptiveGreetingMale;
+
         setGroundedResponse({
           scenario_id: routingDecision.scenario_id,
           status: 'RESOLVED',
@@ -264,11 +288,15 @@ export const AnasMiniGameLabModal: React.FC<AnasMiniGameLabModalProps> = ({
             extracted_intent: routingDecision.intent,
             confidence_score: routingDecision.confidence,
             fallback_triggered: false,
-            routing_rationale_ar: `تم التوجيه إلى «${vaultScenario?.title_ar || routingDecision.scenario_id}» استناداً إلى نصوص ${routingDecision.source_reference}.`,
+            routing_rationale_ar: isNeedsReinforcement
+              ? `اقتراح تكيّفي لترسيخ «${vaultScenario?.title_ar || routingDecision.intent}» استناداً إلى نصوص ${routingDecision.source_reference}.`
+              : isAlreadyMastered
+              ? `تثبيت وتعميق استيعاب «${vaultScenario?.title_ar || routingDecision.intent}» استناداً إلى نصوص ${routingDecision.source_reference}.`
+              : `تم توجيه التجربة إلى «${vaultScenario?.title_ar || routingDecision.intent}» استناداً إلى نصوص ${routingDecision.source_reference}.`,
           },
         });
 
-        // Step 2: Automatically launch the matching educational interaction (SCN_001)
+        // Step 2: Automatically launch the matching educational interaction
         if (vaultScenario) {
           setActivePayload({
             numericId: vaultScenario.numeric_id || 1,
@@ -294,11 +322,9 @@ export const AnasMiniGameLabModal: React.FC<AnasMiniGameLabModalProps> = ({
                 }
               : undefined,
             rafiqMessage: {
-              maleAr: `أهلاً بك يا أخي، لنتدرب معاً على تطبيق ${vaultScenario.title_ar} بالطريقة المعتمدة.`,
-              femaleAr: `أهلاً بكِ يا أختي، لنتدرب معاً على تطبيق ${vaultScenario.title_ar} بالطريقة المعتمدة.`,
-              activeText: isFemale
-                ? `أهلاً بكِ يا أختي، لنتدرب معاً على تطبيق ${vaultScenario.title_ar} بالطريقة المعتمدة.`
-                : `أهلاً بك يا أخي، لنتدرب معاً على تطبيق ${vaultScenario.title_ar} بالطريقة المعتمدة.`,
+              maleAr: adaptiveGreetingMale,
+              femaleAr: adaptiveGreetingFemale,
+              activeText: activeGreeting,
             },
           });
         }
@@ -408,7 +434,7 @@ export const AnasMiniGameLabModal: React.FC<AnasMiniGameLabModalProps> = ({
               </span>
               <span className="text-[11px] text-amber-200 font-bold flex items-center gap-1">
                 <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                <span>{lang === 'ar' ? '40 موقفاً معتمداً بالسند' : '40 Grounded Verified Scenarios'}</span>
+                <span>{lang === 'ar' ? 'تجارب تفاعلية موثقة بالسند' : 'Verified Grounded Experiences'}</span>
               </span>
             </div>
 
@@ -564,10 +590,10 @@ export const AnasMiniGameLabModal: React.FC<AnasMiniGameLabModalProps> = ({
                         handleGenerate('نسيت التشهد الأول');
                       }}
                       className="px-3 py-1.5 rounded-xl bg-white hover:bg-emerald-50 border border-emerald-300/80 text-emerald-900 text-xs font-bold transition-all hover:scale-[1.02] active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-xs"
-                      title="اختبار توجيه سجود السهو SCN_001"
+                      title="استعلام عن سجود السهو"
                     >
-                      <span>🎯 1. نسيت التشهد الأول</span>
-                      <span className="text-[9px] font-mono font-bold text-emerald-700 bg-emerald-100/80 px-1.5 py-0.5 rounded">SCN_001</span>
+                      <span>🎯 {lang === 'ar' ? 'نسيت التشهد الأول' : 'Forgot First Tashahhud'}</span>
+                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100/80 px-1.5 py-0.5 rounded">{lang === 'ar' ? 'سجود السهو' : 'Sujud Sahw'}</span>
                     </button>
 
                     <button
@@ -578,10 +604,10 @@ export const AnasMiniGameLabModal: React.FC<AnasMiniGameLabModalProps> = ({
                         handleGenerate('خايفة تروح علي الصلاة في الطيارة');
                       }}
                       className="px-3 py-1.5 rounded-xl bg-white hover:bg-blue-50 border border-blue-300/80 text-blue-900 text-xs font-bold transition-all hover:scale-[1.02] active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-xs"
-                      title="اختبار صلاة الطائرة SCN_011"
+                      title="استعلام عن الصلاة في السفر"
                     >
-                      <span>✈️ 2. خايفة تروح علي الصلاة في الطيارة</span>
-                      <span className="text-[9px] font-mono font-bold text-blue-700 bg-blue-100/80 px-1.5 py-0.5 rounded">SCN_011</span>
+                      <span>✈️ {lang === 'ar' ? 'خايفة تروح علي الصلاة في الطيارة' : 'Prayer in Flight'}</span>
+                      <span className="text-[9px] font-bold text-blue-700 bg-blue-100/80 px-1.5 py-0.5 rounded">{lang === 'ar' ? 'رخص السفر' : 'Travel'}</span>
                     </button>
 
                     <button
@@ -592,10 +618,10 @@ export const AnasMiniGameLabModal: React.FC<AnasMiniGameLabModalProps> = ({
                         handleGenerate('كيف أغير زيت محرك السيارة؟');
                       }}
                       className="px-3 py-1.5 rounded-xl bg-white hover:bg-amber-50 border border-amber-300/80 text-amber-900 text-xs font-bold transition-all hover:scale-[1.02] active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-xs"
-                      title="اختبار الامتناع الآمن لسؤال خارج النطاق"
+                      title="استعلام خارج النطاق"
                     >
-                      <span>🛡️ 3. كيف أغير زيت محرك السيارة؟</span>
-                      <span className="text-[9px] font-mono font-bold text-amber-700 bg-amber-100/80 px-1.5 py-0.5 rounded">Safe Abstain</span>
+                      <span>🛡️ {lang === 'ar' ? 'كيف أغير زيت محرك السيارة؟' : 'General Inquiry'}</span>
+                      <span className="text-[9px] font-bold text-amber-700 bg-amber-100/80 px-1.5 py-0.5 rounded">{lang === 'ar' ? 'خارج النطاق' : 'Out of Domain'}</span>
                     </button>
                   </div>
                 </div>

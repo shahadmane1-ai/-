@@ -395,7 +395,7 @@ export const GameFirstJumuah: React.FC<DispatcherProps> = ({ experience, lang, o
             </div>
 
             <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-[#5B7B68]/15 text-[#3D5548]">
-              SCN_059
+              {lang === 'ar' ? 'أدب وسنة نبوية' : 'Prophetic Etiquette'}
             </span>
           </div>
 

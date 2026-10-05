@@ -243,10 +243,10 @@ export const GameFamilyCommunication: React.FC<DispatcherProps> = ({ experience,
 
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
-                SCN_044
+                {lang === 'ar' ? 'بر الوالدين' : 'Filial Devotion'}
               </span>
               <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-stone-200 text-stone-700">
-                SCN_043
+                {lang === 'ar' ? 'سند معتمد' : 'Verified Evidence'}
               </span>
             </div>
           </div>

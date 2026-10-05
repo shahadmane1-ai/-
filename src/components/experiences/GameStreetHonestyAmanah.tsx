@@ -225,7 +225,7 @@ export const GameStreetHonestyAmanah: React.FC<DispatcherProps> = ({ experience,
             </div>
 
             <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
-              SCN_059
+              {lang === 'ar' ? 'سند معتمد' : 'Verified Evidence'}
             </span>
           </div>
 

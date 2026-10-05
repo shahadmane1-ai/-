@@ -449,10 +449,10 @@ export const GameUniversityPrayer: React.FC<DispatcherProps> = ({ experience, la
 
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-[#5B7B68]/15 text-[#3D5548]">
-                SCN_013
+                {lang === 'ar' ? 'فقه الطهارة' : 'Purification'}
               </span>
               <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-stone-200 text-stone-700">
-                SCN_025
+                {lang === 'ar' ? 'سند صحيح' : 'Authentic Hadith'}
               </span>
             </div>
           </div>

@@ -813,10 +813,10 @@ export const IsometricCityMap: React.FC<IsometricCityMapProps> = ({
 
                 <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200 text-center space-y-1">
                   <span className="text-xl font-black text-stone-800 font-mono">
-                    {learningState.completed_scenarios.length} / 40
+                    {learningState.completed_scenarios.length}
                   </span>
                   <span className="text-[11px] font-bold text-stone-700 block">
-                    {lang === 'ar' ? 'مواقف منجزة' : 'Completed Scenarios'}
+                    {lang === 'ar' ? 'تجارب مكتملة' : 'Completed Experiences'}
                   </span>
                 </div>
               </div>

@@ -508,10 +508,10 @@ export const GameWorkLunchHalal: React.FC<DispatcherProps> = ({ experience, lang
 
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-[#5B7B68]/15 text-[#3D5548]">
-                SCN_018
+                {lang === 'ar' ? 'تأصيل شرعي' : 'Sacred Evidence'}
               </span>
               <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-stone-200 text-stone-700">
-                SCN_048
+                {lang === 'ar' ? 'سند معتمد' : 'Verified Source'}
               </span>
             </div>
           </div>

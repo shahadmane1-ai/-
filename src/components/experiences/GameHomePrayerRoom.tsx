@@ -461,10 +461,10 @@ export const GameHomePrayerRoom: React.FC<DispatcherProps> = ({ experience, lang
 
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-[#5B7B68]/15 text-[#3D5548]">
-                SCN_001
+                {lang === 'ar' ? 'فقه الخشوع' : 'Khushu Focus'}
               </span>
               <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-stone-200 text-stone-700">
-                SCN_005
+                {lang === 'ar' ? 'سند صحيح' : 'Authentic Hadith'}
               </span>
             </div>
           </div>

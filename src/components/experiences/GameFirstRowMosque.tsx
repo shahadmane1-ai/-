@@ -339,7 +339,7 @@ export const GameFirstRowMosque: React.FC<DispatcherProps> = ({ experience, lang
             </div>
 
             <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
-              SCN_002 / SCN_059
+              {lang === 'ar' ? 'سند معتمد' : 'Authentic Guidance'}
             </span>
           </div>
 

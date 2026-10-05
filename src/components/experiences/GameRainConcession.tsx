@@ -178,7 +178,7 @@ export const GameRainConcession: React.FC<DispatcherProps> = ({ experience, lang
             </div>
 
             <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
-              SCN_012 / SCN_026
+              {lang === 'ar' ? 'رخصة شرعية وسند' : 'Sacred Concession'}
             </span>
           </div>
 
