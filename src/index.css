@@ -1,0 +1,132 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --canvas: #FBF9F5;
+    --primary-forest: #2C483F;
+    --rose-gold: #D4A373;
+    --rose-gold-dark: #C89B84;
+    --mascot-green: #88C947;
+    --mascot-cheek: #F4ACB7;
+    --font-arabic: 'Tajawal', 'IBM Plex Sans Arabic', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-english: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background-color: var(--canvas);
+    color: var(--primary-forest);
+    font-family: var(--font-arabic);
+    touch-action: manipulation;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+
+  [dir="ltr"] body,
+  [dir="ltr"] {
+    font-family: var(--font-english);
+  }
+
+  [dir="rtl"] body,
+  [dir="rtl"] {
+    font-family: var(--font-arabic);
+  }
+}
+
+/* Custom subtle animations */
+@keyframes wave-arm {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  20% {
+    transform: rotate(14deg);
+  }
+  40% {
+    transform: rotate(-8deg);
+  }
+  60% {
+    transform: rotate(14deg);
+  }
+  80% {
+    transform: rotate(-4deg);
+  }
+}
+
+@keyframes float-badge {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.9);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1.05);
+  }
+  80% {
+    opacity: 1;
+    transform: translateY(-16px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-24px) scale(0.95);
+  }
+}
+
+@keyframes pulse-halo {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(212, 163, 115, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(212, 163, 115, 0);
+  }
+}
+
+@keyframes breathe-circle {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.18);
+    opacity: 1;
+  }
+}
+
+.animate-wave {
+  transform-origin: 75% 75%;
+  animation: wave-arm 2.4s ease-in-out infinite;
+}
+
+.animate-breathe {
+  animation: breathe-circle 6s ease-in-out infinite;
+}
+
+.animate-pulse-halo {
+  animation: pulse-halo 3s ease-in-out infinite;
+}
+
+/* Arabesque Geometric Pattern Background Utility */
+.bg-arabesque-pattern {
+  background-image: radial-gradient(#D4A373 0.75px, transparent 0.75px), radial-gradient(#2C483F 0.5px, #FBF9F5 0.5px);
+  background-size: 32px 32px;
+  background-position: 0 0, 16px 16px;
+  background-opacity: 0.04;
+}
+
+/* Subtle card shadow */
+.shadow-soft {
+  box-shadow: 0 10px 30px -5px rgba(44, 72, 63, 0.05), 0 4px 12px -2px rgba(44, 72, 63, 0.03);
+}
+
+.shadow-soft-lg {
+  box-shadow: 0 20px 40px -12px rgba(44, 72, 63, 0.08), 0 8px 20px -4px rgba(44, 72, 63, 0.04);
+}
+
+.shadow-gold {
+  box-shadow: 0 10px 25px -4px rgba(212, 163, 115, 0.25), 0 4px 10px -2px rgba(212, 163, 115, 0.15);
+}
