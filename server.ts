@@ -49,7 +49,13 @@ async function safeAiGenerateContent(params: {
   primaryModel?: string;
 }): Promise<string | null> {
   if (!ai) return null;
-  const models = Array.from(new Set([params.primaryModel || 'gemini-3.5-flash-lite', 'gemini-3.8-flash']));
+  const models = Array.from(new Set([
+    params.primaryModel || 'gemini-3.5-flash-lite',
+    'gemini-3.5-flash-lite',
+    'gemini-3.5-flash',
+    'gemini-3.1-flash-lite',
+    'gemini-flash-lite-latest',
+  ]));
   for (const model of models) {
     try {
       const config: any = {
@@ -102,6 +108,9 @@ app.post('/api/gemini/embed', async (req: Request, res: Response) => {
       const modelStartTime = Date.now();
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:embedContent?key=${currentApiKey}`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
         const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -110,7 +119,9 @@ app.post('/api/gemini/embed', async (req: Request, res: Response) => {
             content: { parts: [{ text: text.trim() }] },
             outputDimensionality: 768,
           }),
+          signal: controller.signal,
         });
+        clearTimeout(timeoutId);
 
         const latencyMs = Date.now() - modelStartTime;
 
@@ -152,7 +163,13 @@ app.post('/api/gemini/generate', async (req: Request, res: Response) => {
       return res.status(500).json({ error: 'GEMINI_API_KEY is not configured on server' });
     }
 
-    const candidateModels = Array.from(new Set([model, 'gemini-3.5-flash-lite', 'gemini-3.8-flash']));
+    const candidateModels = Array.from(new Set([
+      model,
+      'gemini-3.5-flash-lite',
+      'gemini-3.5-flash',
+      'gemini-3.1-flash-lite',
+      'gemini-flash-lite-latest',
+    ]));
     let lastError = '';
 
     for (const currentModel of candidateModels) {
@@ -170,11 +187,16 @@ app.post('/api/gemini/generate', async (req: Request, res: Response) => {
           bodyPayload.systemInstruction = { parts: [{ text: systemInstruction }] };
         }
 
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 12000);
+
         const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(bodyPayload),
+          signal: controller.signal,
         });
+        clearTimeout(timeoutId);
 
         const latencyMs = Date.now() - modelStartTime;
 
@@ -552,7 +574,7 @@ Requirements:
 }`;
 
         const textOutput = await safeAiGenerateContent({
-          primaryModel: 'gemini-3.8-flash',
+          primaryModel: 'gemini-3.5-flash-lite',
           contents: gamePrompt,
           responseMimeType: 'application/json',
           temperature: 0.3,
@@ -878,7 +900,7 @@ Output strictly valid JSON matching this schema:
       }
 
       const textOutput = await safeAiGenerateContent({
-        primaryModel: 'gemini-3.8-flash',
+        primaryModel: 'gemini-3.5-flash-lite',
         contents: promptContent,
         systemInstruction,
         responseMimeType: 'application/json',
@@ -983,7 +1005,7 @@ Output strictly valid JSON matching schema:
 
     const prompt = `Classify user query intent into one of 30 scenarios:\n"${userQuery}"`;
     const textOutput = await safeAiGenerateContent({
-      primaryModel: 'gemini-3.8-flash',
+      primaryModel: 'gemini-3.5-flash-lite',
       contents: prompt,
       systemInstruction,
       responseMimeType: 'application/json',
@@ -1131,7 +1153,7 @@ Output format strictly valid JSON matching this schema:
         const prompt = `Evaluate emotional state: "${emotionId}" with context: "${customNote || emotionId}". User is ${isFemale ? 'female' : 'male'}. Return JSON.`;
 
         const textOutput = await safeAiGenerateContent({
-          primaryModel: 'gemini-3.8-flash',
+          primaryModel: 'gemini-3.5-flash-lite',
           contents: prompt,
           systemInstruction,
           responseMimeType: 'application/json',
@@ -1234,9 +1256,7 @@ async function startServer() {
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
-        hmr: {
-          overlay: false,
-        },
+        hmr: false,
       },
       appType: 'spa',
     });

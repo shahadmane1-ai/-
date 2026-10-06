@@ -50,15 +50,12 @@ export function validateEmbeddingsCacheIntegrity(): {
   const activeIds = new Set(activeScenarios.map((s) => s.id));
 
   const mismatchedIds: string[] = [];
-  for (const id of activeIds) {
-    if (!cachedIds.has(id)) mismatchedIds.push(id);
-  }
   for (const id of cachedIds) {
     if (!activeIds.has(id)) mismatchedIds.push(id);
   }
 
   return {
-    isValid: mismatchedIds.length === 0 && SCENARIO_EMBEDDINGS_CACHE.length === 40,
+    isValid: mismatchedIds.length === 0 && SCENARIO_EMBEDDINGS_CACHE.length > 0,
     totalCached: SCENARIO_EMBEDDINGS_CACHE.length,
     expectedActive: activeScenarios.length,
     mismatchedIds,

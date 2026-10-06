@@ -12,9 +12,7 @@ export default defineConfig(() => {
       },
     },
     server: {
-      hmr: {
-        overlay: false, // Disables the transparent error screen blocking clicks
-      },
+      hmr: false,
       watch: {
         usePolling: true,
       },

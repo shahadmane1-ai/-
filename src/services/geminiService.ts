@@ -7,7 +7,7 @@ export const DEFAULT_EMBEDDING_MODEL = 'gemini-embedding-2-preview';
 export const FALLBACK_EMBEDDING_MODEL = 'gemini-embedding-001';
 export const DEFAULT_LLM_MODEL = 'gemini-3.5-flash-lite';
 export const EMBEDDING_DIMENSION = 768;
-export const DEFAULT_TIMEOUT_MS = 25000; // Calibrated 25s timeout to avoid premature abortion
+export const DEFAULT_TIMEOUT_MS = 15000; // Fast 15s timeout to ensure prompt failover and responsiveness
 
 /**
  * Resolves the Gemini API Key from environment variables.
@@ -248,11 +248,17 @@ export async function generateContentDirect(params: GenerateContentParams): Prom
 
   // Strategy 2: Direct Google REST API fetch with candidate failover
   const apiKey = getApiKey();
-  if (!apiKey) {
-    throw new Error('Error: VITE_GEMINI_API_KEY is missing.');
+  if (!apiKey || typeof apiKey !== 'string' || apiKey.trim().length === 0) {
+    throw new Error('Direct REST client API key is not available in browser context.');
   }
 
-  const candidateModels = Array.from(new Set([modelName, 'gemini-3.5-flash-lite', 'gemini-3.8-flash']));
+  const candidateModels = Array.from(new Set([
+    modelName,
+    'gemini-3.5-flash-lite',
+    'gemini-3.5-flash',
+    'gemini-3.1-flash-lite',
+    'gemini-flash-lite-latest',
+  ]));
   let lastErrorMsg = '';
 
   for (const currentModel of candidateModels) {
