@@ -101,7 +101,7 @@ const TaskContentDispatcher: React.FC<TaskContentProps> = ({
 }) => {
   switch (task.taskId) {
     case 'task-day-1':
-      return <TaskDay1Shahadah task={task} lang={lang} isCompleted={isCompleted} onComplete={onComplete} />;
+      return <TaskDay1NoticePrayer task={task} lang={lang} isCompleted={isCompleted} onComplete={onComplete} />;
     case 'task-day-2':
       return <TaskDay2Qiblah task={task} lang={lang} isCompleted={isCompleted} onComplete={onComplete} />;
     case 'task-day-3':
@@ -131,212 +131,174 @@ const TaskContentDispatcher: React.FC<TaskContentProps> = ({
 };
 
 // =========================================================================
-// DAY 1 TASK: نطق الشهادتين وتثبيت اليقين
+// DAY 1 TASK: لاحظ الصلاة في يومك
 // =========================================================================
-const TaskDay1Shahadah: React.FC<TaskContentProps> = ({ task, lang, isCompleted, onComplete }) => {
-  const [part1Recited, setPart1Recited] = useState(false);
-  const [part2Recited, setPart2Recited] = useState(false);
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+const TaskDay1NoticePrayer: React.FC<TaskContentProps> = ({ task, lang, isCompleted, onComplete }) => {
+  const [routines, setRoutines] = useState<Record<string, string>>({
+    fajr: '',
+    dhuhr: '',
+    asr: '',
+    maghrib: '',
+    isha: '',
+  });
 
-  const speakArabic = (text: string) => {
-    playPeaceChime();
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'ar-SA';
-      utterance.rate = 0.8;
-      utterance.pitch = 1.0;
-      setIsPlayingAudio(true);
-      utterance.onend = () => setIsPlayingAudio(false);
-      utterance.onerror = () => setIsPlayingAudio(false);
-      window.speechSynthesis.speak(utterance);
-    }
-  };
+  const prayers = [
+    {
+      id: 'fajr',
+      nameAr: 'صلاة الفجر (الفجر)',
+      nameEn: 'Fajr Prayer (Dawn)',
+      optionsAr: ['الاستيقاظ والبدء بنشاط', 'النوم والراحة العميقة', 'الهدوء والسكينة الباكرة'],
+      optionsEn: ['Waking up & active start', 'Deep rest & sleep', 'Early morning quietude'],
+      tipsAr: '✨ استراحة الفجر تمنح يومك طاقة مباركة وسكينة تبدأ بها صباحك بنور وطمأنينة.',
+      tipsEn: '✨ The dawn prayer instills early barakah (blessing) and serene energy to start your day beautifully.',
+    },
+    {
+      id: 'dhuhr',
+      nameAr: 'صلاة الظهر (الظهر)',
+      nameEn: 'Dhuhr Prayer (Noon)',
+      optionsAr: ['العمل المتواصل أو الدراسة', 'التواجد في المنزل', 'الاستراحة من مشاغل النهار'],
+      optionsEn: ['Active work / Study', 'Staying at home', 'Midday relaxation break'],
+      tipsAr: '✨ صلاة الظهر واحة في منتصف النهار تفصلك عن ضغوط العمل والدراسة لتستعيد هدوءك النفسي.',
+      tipsEn: '✨ Dhuhr is a serene oasis in the middle of busy hours, disconnecting you from work stress to restore clarity.',
+    },
+    {
+      id: 'asr',
+      nameAr: 'صلاة العصر (العصر)',
+      nameEn: 'Asr Prayer (Afternoon)',
+      optionsAr: ['العودة من العمل / الدراسة', 'إتمام الأعمال المنزلية', 'الجلوس والاسترخاء والقهوة'],
+      optionsEn: ['Commuting home / End of study', 'Finishing home chores', 'Relaxing afternoon downtime'],
+      tipsAr: '✨ صلاة العصر تشحن روحك في فترة التعب اليومية لتواصل يومك بذهن صافٍ ونفس مطمئنة.',
+      tipsEn: '✨ Asr provides a vital spiritual recharge during afternoon fatigue, keeping your mind alert and peaceful.',
+    },
+    {
+      id: 'maghrib',
+      nameAr: 'صلاة المغرب (المغرب)',
+      nameEn: 'Maghrib Prayer (Sunset)',
+      optionsAr: ['أمسية دافئة مع العائلة', 'إعداد وجبة العشاء والراحة', 'ممارسة هواية أو نشاط خفيف'],
+      optionsEn: ['Warm family evening', 'Preparing dinner & resting', 'Hobby or light activities'],
+      tipsAr: '✨ صلاة المغرب تجمع بين بركة الغروب وهدوء المساء بقلب خاشع وممتن لنعم الله.',
+      tipsEn: '✨ Maghrib marks the transition of sunset, wrapping your evening in deep gratitude and tranquility.',
+    },
+    {
+      id: 'isha',
+      nameAr: 'صلاة العشاء (العشاء)',
+      nameEn: 'Isha Prayer (Night)',
+      optionsAr: ['الاسترخاء التام وتصفح المعرفة', 'الاستعداد للنوم والراحة', 'الحديث اللطيف مع الأحباء'],
+      optionsEn: ['Deep relaxation & reading', 'Preparing for bed & sleep', 'Gentle conversation with loved ones'],
+      tipsAr: '✨ صلاة العشاء هي مسك ختام يومك، تطوي بها هموم المشاغل لتنام بسلام وأمان يحيط بقلبك.',
+      tipsEn: '✨ Isha is the perfect closing of your day, folding away all worries so you can rest in profound safety.',
+    },
+  ];
 
-  const handleTogglePart1 = () => {
+  const handleSelect = (prayerId: string, option: string) => {
     playSoftTap();
-    setPart1Recited(!part1Recited);
+    setRoutines((prev) => ({ ...prev, [prayerId]: option }));
   };
 
-  const handleTogglePart2 = () => {
-    playSoftTap();
-    setPart2Recited(!part2Recited);
-  };
+  const allSelected = Object.values(routines).every((val) => val !== '');
 
   return (
     <div className="space-y-4">
       {/* Introduction Card */}
       <div className="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-50/90 to-[#FBF9F5] border border-emerald-300/60 text-xs text-[#2C483F] leading-relaxed space-y-1">
         <div className="flex items-center gap-1.5 font-bold text-emerald-800">
-          <Sparkles className="w-4 h-4 text-amber-500" />
-          <span>{lang === 'ar' ? 'مفتاح الإسلام وبوابة النور والسكينة' : 'The Gateway of Faith & Serenity'}</span>
+          <Clock className="w-4 h-4 text-[#88C947]" />
+          <span>{lang === 'ar' ? 'انسجام الصلاة مع روتينك اليومي' : 'Integrating Prayer into Your Routine'}</span>
         </div>
         <p className="text-stone-600">
           {lang === 'ar'
-            ? 'الشهادتان هما أعظم كلمة ينطق بها القلب واللسان. استمع لنطقهما بوضوح ورددهما بيقين وطمأنينة:'
-            : 'The Shahadah is the foundational testimony of faith. Listen to the clear pronunciation and recite with peace of heart:'}
+            ? 'الصلاة ليست عبئاً يقطع يومك، بل هي محطة سكينة تزيدك بركة وتمنحك استراحة نفسية هادئة. اختر روتينك المعتاد في كل وقت صلاة لتكتشف كيف تتناغم مع جدولك:'
+            : 'Prayer is not an interruption, but a serene pause that blesses your time. Match your typical schedule at each prayer time to see the harmony:'}
         </p>
       </div>
 
-      {/* Two Testimonies Interactive Cards */}
-      <div className="space-y-3">
-        {/* Part 1: Tawheed */}
-        <div
-          className={`p-4 rounded-2xl border-2 transition-all duration-300 space-y-2.5 ${
-            part1Recited
-              ? 'bg-emerald-50/80 border-emerald-400 shadow-soft'
-              : 'bg-white border-stone-200 hover:border-emerald-300'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100/70 px-2.5 py-0.5 rounded-full">
-              {lang === 'ar' ? 'الشهادة الأولى: التوحيد' : '1st Testimony: Monotheism'}
-            </span>
-            <button
-              type="button"
-              onClick={() => speakArabic('أشهد أن لا إله إلا الله')}
-              className="flex items-center gap-1 text-xs font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-3 py-1 rounded-xl transition-all cursor-pointer"
-              title={lang === 'ar' ? 'استمع للنطق' : 'Listen'}
+      {/* 5 Prayers Selector */}
+      <div className="space-y-4 max-h-[380px] overflow-y-auto pr-1">
+        {prayers.map((p) => {
+          const selectedVal = routines[p.id];
+          return (
+            <div
+              key={p.id}
+              className={`p-3.5 rounded-2xl border-2 transition-all duration-300 space-y-3 ${
+                selectedVal
+                  ? 'bg-emerald-50/50 border-emerald-300'
+                  : 'bg-white border-stone-100 hover:border-emerald-100'
+              }`}
             >
-              <Volume2 className="w-3.5 h-3.5 text-emerald-600" />
-              <span>{lang === 'ar' ? 'استمع' : 'Listen'}</span>
-            </button>
-          </div>
+              <div className="flex justify-between items-center">
+                <h5 className="text-xs font-black text-[#2C483F] flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                  <span>{lang === 'ar' ? p.nameAr : p.nameEn}</span>
+                </h5>
+                {selectedVal && (
+                  <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
+                    {lang === 'ar' ? 'تم الاختيار ✓' : 'Selected ✓'}
+                  </span>
+                )}
+              </div>
 
-          <div className="text-center py-1">
-            <h5 className="text-lg sm:text-xl font-black text-[#2C483F] font-arabic tracking-wide">
-              « أَشْهَدُ أَنْ لَا إِلٰهَ إِلَّا اللهُ »
-            </h5>
-            <p className="text-[11px] font-mono text-stone-500 mt-1">
-              "Ash-hadu an la ilaha illa Allah"
-            </p>
-            <p className="text-xs text-stone-700 mt-0.5 font-medium">
-              {lang === 'ar'
-                ? 'أي: لا معبود بحق إلا الله وحده لا شريك له'
-                : 'Meaning: I bear witness that there is no deity worthy of worship except Allah'}
-            </p>
-          </div>
+              {/* Options buttons */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {(lang === 'ar' ? p.optionsAr : p.optionsEn).map((option, idx) => {
+                  const isChosen = selectedVal === option;
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleSelect(p.id, option)}
+                      className={`py-1.5 px-2.5 rounded-xl text-[11px] font-bold transition-all text-center select-none cursor-pointer ${
+                        isChosen
+                          ? 'bg-[#2C483F] text-white shadow-soft'
+                          : 'bg-stone-50 hover:bg-stone-100 text-stone-700 border border-stone-200/65'
+                      }`}
+                    >
+                      {option}
+                    </button>
+                  );
+                })}
+              </div>
 
-          <button
-            type="button"
-            onClick={handleTogglePart1}
-            className={`w-full py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-              part1Recited
-                ? 'bg-emerald-600 text-white'
-                : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
-            }`}
-          >
-            <CheckCircle2 className={`w-4 h-4 ${part1Recited ? 'text-white' : 'text-stone-400'}`} />
-            <span>
-              {part1Recited
-                ? lang === 'ar'
-                  ? 'تم النطق والتدبر بفضل الله'
-                  : 'Recited & Reflected'
-                : lang === 'ar'
-                ? 'انقر لتأكيد نطق الشهادة الأولى'
-                : 'Click to confirm reciting 1st testimony'}
-            </span>
-          </button>
-        </div>
-
-        {/* Part 2: Prophethood */}
-        <div
-          className={`p-4 rounded-2xl border-2 transition-all duration-300 space-y-2.5 ${
-            part2Recited
-              ? 'bg-emerald-50/80 border-emerald-400 shadow-soft'
-              : 'bg-white border-stone-200 hover:border-emerald-300'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100/70 px-2.5 py-0.5 rounded-full">
-              {lang === 'ar' ? 'الشهادة الثانية: الرسالة' : '2nd Testimony: Prophethood'}
-            </span>
-            <button
-              type="button"
-              onClick={() => speakArabic('وأشهد أن محمداً رسول الله')}
-              className="flex items-center gap-1 text-xs font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-3 py-1 rounded-xl transition-all cursor-pointer"
-              title={lang === 'ar' ? 'استمع للنطق' : 'Listen'}
-            >
-              <Volume2 className="w-3.5 h-3.5 text-emerald-600" />
-              <span>{lang === 'ar' ? 'استمع' : 'Listen'}</span>
-            </button>
-          </div>
-
-          <div className="text-center py-1">
-            <h5 className="text-lg sm:text-xl font-black text-[#2C483F] font-arabic tracking-wide">
-              « وَأَشْهَدُ أَنَّ مُحَمَّدًا رَسُولُ اللهِ »
-            </h5>
-            <p className="text-[11px] font-mono text-stone-500 mt-1">
-              "Wa ash-hadu anna Muhammadan Rasool Allah"
-            </p>
-            <p className="text-xs text-stone-700 mt-0.5 font-medium">
-              {lang === 'ar'
-                ? 'أي: نبي الرحمة وخاتم النبيين المرسل للناس كافة'
-                : 'Meaning: And I bear witness that Muhammad is the Messenger of Allah'}
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleTogglePart2}
-            className={`w-full py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-              part2Recited
-                ? 'bg-emerald-600 text-white'
-                : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
-            }`}
-          >
-            <CheckCircle2 className={`w-4 h-4 ${part2Recited ? 'text-white' : 'text-stone-400'}`} />
-            <span>
-              {part2Recited
-                ? lang === 'ar'
-                  ? 'تم النطق والتدبر بفضل الله'
-                  : 'Recited & Reflected'
-                : lang === 'ar'
-                ? 'انقر لتأكيد نطق الشهادة الثانية'
-                : 'Click to confirm reciting 2nd testimony'}
-            </span>
-          </button>
-        </div>
-      </div>
-
-      {/* Grounded Citation Note */}
-      <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200/80 text-[11px] text-amber-900 leading-relaxed flex items-start gap-2">
-        <BookOpen className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
-        <div>
-          <span className="font-bold">
-            {lang === 'ar' ? 'بيان نبوي مطمئن: ' : 'Prophetic Guidance: '}
-          </span>
-          <span>
-            {lang === 'ar'
-              ? '«بُنِيَ الإِسْلامُ عَلى خَمْسٍ: شَهادَةِ أَنْ لا إِلهَ إِلَّا اللَّهُ وَأَنَّ مُحَمَّدًا رَسُولُ اللَّهِ...» [متفق عليه]'
-              : '"Islam is built upon five pillars: testifying that there is no god but Allah and that Muhammad is the Messenger of Allah..." [Agreed Upon]'}
-          </span>
-        </div>
+              {/* Dynamic feedback tip */}
+              {selectedVal && (
+                <div className="p-2.5 rounded-xl bg-[#88C947]/10 text-[11px] text-[#2C483F] leading-relaxed border border-[#88C947]/20 transition-all duration-300 animate-fade-in">
+                  {lang === 'ar' ? p.tipsAr : p.tipsEn}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* Completion Button */}
       <div className="pt-2 text-center">
         <button
           type="button"
+          disabled={!allSelected && !isCompleted}
           onClick={onComplete}
-          className={`w-full py-3 rounded-2xl text-xs sm:text-sm font-bold transition-all shadow-soft cursor-pointer flex items-center justify-center gap-2 ${
+          className={`w-full py-3 rounded-2xl text-xs sm:text-sm font-bold transition-all shadow-soft flex items-center justify-center gap-2 ${
             isCompleted
-              ? 'bg-stone-100 text-stone-500 cursor-default'
-              : 'bg-gradient-to-r from-[#2C483F] to-[#1e342d] hover:from-[#1e342d] hover:to-[#14231E] text-white hover:scale-[1.01] active:scale-[0.99]'
+              ? 'bg-stone-100 text-stone-500 cursor-default border border-stone-200'
+              : allSelected
+              ? 'bg-gradient-to-r from-[#2C483F] to-[#1e342d] hover:from-[#1e342d] hover:to-[#14231E] text-white cursor-pointer hover:scale-[1.01] active:scale-[0.99]'
+              : 'bg-stone-100 text-stone-400 cursor-not-allowed border border-stone-200'
           }`}
         >
           {isCompleted ? (
             <>
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              <span>{lang === 'ar' ? '✓ تم إنجاز مهمة نطق الشهادتين بنجاح' : '✓ Shahadah Task Completed'}</span>
+              <span>{lang === 'ar' ? '✓ تم إنجاز مهمة جدول السكينة بنجاح' : '✓ Serenity Timeline Task Completed'}</span>
             </>
           ) : (
             <>
               <Sparkles className="w-4 h-4 text-amber-300" />
               <span>
-                {lang === 'ar'
-                  ? 'تأكيد نطق الشهادتين واستشعار السكينة 🌿'
-                  : 'Confirm Shahadah Recitation & Embrace Serenity 🌿'}
+                {allSelected
+                  ? lang === 'ar'
+                    ? 'تأكيد جدول السكينة وإتمام المهمة 🌿'
+                    : 'Confirm Serenity Schedule & Complete Task 🌿'
+                  : lang === 'ar'
+                  ? 'يرجى اختيار روتينك لجميع الصلوات الـ 5 لتفعيل المهمة'
+                  : 'Please select routine for all 5 prayers to complete'}
               </span>
             </>
           )}

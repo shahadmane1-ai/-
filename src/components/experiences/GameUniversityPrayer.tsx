@@ -77,6 +77,8 @@ export const GameUniversityPrayer: React.FC<DispatcherProps> = ({ experience, la
   const handleBottomClick = () => {
     playSoftTap();
     setClickedBottomWarning(true);
+    // Record learning mistake for wiping bottom of socks
+    recordScenarioAttempt('SCN_025', false, [], 'purity');
   };
 
   // Step 4: Begin Prayer

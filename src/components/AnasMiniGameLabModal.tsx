@@ -47,6 +47,8 @@ interface AnasMiniGameLabModalProps {
   initialQuery?: string;
   userProfile?: UserPersonalizationProfile;
   onAdjustScore?: (delta: number, label: string, type: 'peace' | 'stress') => void;
+  onOpenUmrah?: () => void;
+  onOpenHajj?: () => void;
 }
 
 export interface DynamicLabPayload {
@@ -83,6 +85,8 @@ export const AnasMiniGameLabModal: React.FC<AnasMiniGameLabModalProps> = ({
   initialQuery,
   userProfile,
   onAdjustScore,
+  onOpenUmrah,
+  onOpenHajj,
 }) => {
   const [userQuery, setUserQuery] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -425,22 +429,11 @@ export const AnasMiniGameLabModal: React.FC<AnasMiniGameLabModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-5 sm:p-6 bg-gradient-to-r from-[#12183F] via-[#1a2355] to-[#0B102B] text-white flex items-start justify-between relative">
-          <div className="space-y-1.5 pe-8 text-start">
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 flex items-center gap-1">
-                <Gamepad2 className="w-3 h-3 text-amber-300" />
-                <span>{lang === 'ar' ? 'مختبر رفيق للتجارب الحركية والتأصيلية' : 'Rafiq Tactile & Grounded Lab'}</span>
-              </span>
-              <span className="text-[11px] text-amber-200 font-bold flex items-center gap-1">
-                <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                <span>{lang === 'ar' ? 'تجارب تفاعلية موثقة بالسند' : 'Verified Grounded Experiences'}</span>
-              </span>
-            </div>
-
+        <div className="p-5 sm:p-6 bg-gradient-to-r from-[#12183F] via-[#1a2355] to-[#0B102B] text-white flex items-center justify-between relative">
+          <div className="space-y-1 pe-8 text-start">
             <h3 className="text-xl sm:text-2xl font-black flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-amber-300" />
-              <span>{lang === 'ar' ? 'المحاكي الحركي للتأقلم والشعائر' : 'Tactile Adaptation Simulator'}</span>
+              <span>{lang === 'ar' ? 'مختبر رفيق' : 'Rafeeq Lab'}</span>
             </h3>
           </div>
 
@@ -470,7 +463,6 @@ export const AnasMiniGameLabModal: React.FC<AnasMiniGameLabModalProps> = ({
                       <Sparkles className="w-3 h-3 text-amber-600" />
                       <span>{lang === 'ar' ? 'توصية تأقلم مخصصة لترسيخ التعلم' : 'Personalized Reinforcement'}</span>
                     </span>
-                    <span className="text-[10px] font-mono text-stone-500 font-bold">{adaptiveRec.target_scenario_id}</span>
                   </div>
 
                   <div className="flex items-center justify-between gap-3">
@@ -496,15 +488,8 @@ export const AnasMiniGameLabModal: React.FC<AnasMiniGameLabModalProps> = ({
                   🎯
                 </div>
                 <h4 className="text-base sm:text-lg font-black text-[#12183F]">
-                  {lang === 'ar'
-                    ? 'ما التحدي أو الموقف الذي تريد التدرب عليه عملياً اليوم؟'
-                    : 'What practical challenge or situation do you want to train for today?'}
+                  {lang === 'ar' ? 'ماذا تواجه اليوم؟' : 'What are you facing today?'}
                 </h4>
-                <p className="text-xs text-stone-500 max-w-lg mx-auto">
-                  {lang === 'ar'
-                    ? 'اكتب بحرية بأي لهجة: "كيف اصلي بالطيارة"، "كم اطلع رز بزكاة الفطر"، "رجلي فيها جبس"، "نسيت التشهد الاول"...'
-                    : 'e.g., How to pray in an airplane seat, how much rice for Zakat al-Fitr, forgot first tashahhud...'}
-                </p>
               </div>
 
               {/* MASSIVE RED DIAGNOSTIC ERROR BOX (ROOT CAUSE UNCOVERED) */}
@@ -569,68 +554,11 @@ export const AnasMiniGameLabModal: React.FC<AnasMiniGameLabModalProps> = ({
                   )}
                 </div>
 
-                {/* Judge Demo Quick-Test Chips */}
-                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-stone-50 to-amber-50/50 border border-stone-200/90 space-y-2 text-start">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-black text-stone-700 flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                      <span>{lang === 'ar' ? 'أزرار اختبار سريعة للتحكيم (Judge Quick-Test Chips):' : 'Judge Quick-Test Chips:'}</span>
-                    </span>
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-purple-100 text-purple-900 border border-purple-200">
-                      {isDemoMode ? (lang === 'ar' ? 'وضع التحكيم نشط 🚀' : 'Demo Active 🚀') : (lang === 'ar' ? 'أمثلة استعلام جاهزة' : 'Quick Samples')}
-                    </span>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        playSoftTap();
-                        setUserQuery('نسيت التشهد الأول');
-                        handleGenerate('نسيت التشهد الأول');
-                      }}
-                      className="px-3 py-1.5 rounded-xl bg-white hover:bg-emerald-50 border border-emerald-300/80 text-emerald-900 text-xs font-bold transition-all hover:scale-[1.02] active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-xs"
-                      title="استعلام عن سجود السهو"
-                    >
-                      <span>🎯 {lang === 'ar' ? 'نسيت التشهد الأول' : 'Forgot First Tashahhud'}</span>
-                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100/80 px-1.5 py-0.5 rounded">{lang === 'ar' ? 'سجود السهو' : 'Sujud Sahw'}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        playSoftTap();
-                        setUserQuery('خايفة تروح علي الصلاة في الطيارة');
-                        handleGenerate('خايفة تروح علي الصلاة في الطيارة');
-                      }}
-                      className="px-3 py-1.5 rounded-xl bg-white hover:bg-blue-50 border border-blue-300/80 text-blue-900 text-xs font-bold transition-all hover:scale-[1.02] active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-xs"
-                      title="استعلام عن الصلاة في السفر"
-                    >
-                      <span>✈️ {lang === 'ar' ? 'خايفة تروح علي الصلاة في الطيارة' : 'Prayer in Flight'}</span>
-                      <span className="text-[9px] font-bold text-blue-700 bg-blue-100/80 px-1.5 py-0.5 rounded">{lang === 'ar' ? 'رخص السفر' : 'Travel'}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        playSoftTap();
-                        setUserQuery('كيف أغير زيت محرك السيارة؟');
-                        handleGenerate('كيف أغير زيت محرك السيارة؟');
-                      }}
-                      className="px-3 py-1.5 rounded-xl bg-white hover:bg-amber-50 border border-amber-300/80 text-amber-900 text-xs font-bold transition-all hover:scale-[1.02] active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-xs"
-                      title="استعلام خارج النطاق"
-                    >
-                      <span>🛡️ {lang === 'ar' ? 'كيف أغير زيت محرك السيارة؟' : 'General Inquiry'}</span>
-                      <span className="text-[9px] font-bold text-amber-700 bg-amber-100/80 px-1.5 py-0.5 rounded">{lang === 'ar' ? 'خارج النطاق' : 'Out of Domain'}</span>
-                    </button>
-                  </div>
-                </div>
-
                 <div className="flex flex-col sm:flex-row gap-2.5">
                   <button
                     type="submit"
                     disabled={isGenerating || !userQuery.trim()}
-                    className="flex-1 py-3.5 px-5 rounded-2xl bg-gradient-to-r from-[#12183F] via-[#1a2355] to-[#0B102B] hover:opacity-95 text-white text-xs sm:text-sm font-black shadow-soft flex items-center justify-center gap-2 transition-all transform hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 cursor-pointer"
+                    className="w-full py-3.5 px-5 rounded-2xl bg-gradient-to-r from-[#12183F] via-[#1a2355] to-[#0B102B] hover:opacity-95 text-white text-xs sm:text-sm font-black shadow-soft flex items-center justify-center gap-2 transition-all transform hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 cursor-pointer"
                   >
                     {isGenerating ? (
                       <>
@@ -643,15 +571,6 @@ export const AnasMiniGameLabModal: React.FC<AnasMiniGameLabModalProps> = ({
                         <span>{lang === 'ar' ? 'بحث وتوليد التجربة الحركية 🎯' : 'Search & Generate Tactile Scene 🎯'}</span>
                       </>
                     )}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowTopicSelector(true)}
-                    className="py-3 px-4 rounded-2xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
-                  >
-                    <Layers className="w-4 h-4 text-emerald-600" />
-                    <span>{lang === 'ar' ? 'دليل الـ 30 مشهداً' : '30 Scenes Directory'}</span>
                   </button>
                 </div>
               </form>
@@ -679,7 +598,7 @@ export const AnasMiniGameLabModal: React.FC<AnasMiniGameLabModalProps> = ({
                   }`}
                 >
                   {groundedResponse.status === 'RESOLVED'
-                    ? (lang === 'ar' ? `موقف معتمد: ${groundedResponse.scenario_id}` : `Resolved: ${groundedResponse.scenario_id}`)
+                    ? (lang === 'ar' ? 'موقف معتمد' : 'Resolved Scenario')
                     : (lang === 'ar' ? 'إحالة لقنوات الإفتاء الرسمية' : 'Human Specialist Referral')}
                 </span>
               </div>
@@ -774,7 +693,7 @@ export const AnasMiniGameLabModal: React.FC<AnasMiniGameLabModalProps> = ({
                 <div className="p-5 rounded-2xl bg-gradient-to-b from-stone-50 to-emerald-50/30 border border-emerald-200 space-y-4 shadow-sm">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
+                      <span className="hidden" aria-hidden="true">
                         {groundedResponse.scenario_id}
                       </span>
                       {groundedResponse.approved_sources?.[0]?.reference_title && (
@@ -944,7 +863,7 @@ export const AnasMiniGameLabModal: React.FC<AnasMiniGameLabModalProps> = ({
                     className="p-3.5 rounded-2xl bg-stone-50 hover:bg-emerald-50/70 border border-stone-200 hover:border-emerald-300 transition-all cursor-pointer space-y-1.5 group hover:shadow-md"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-[#12183F]/10 text-[#12183F] group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                      <span className="hidden" aria-hidden="true">
                         المشهد {scen.numericId}
                       </span>
                       <span className="text-[9px] text-stone-400 font-mono">{scen.fiqhSource}</span>
@@ -977,7 +896,7 @@ export const AnasMiniGameLabModal: React.FC<AnasMiniGameLabModalProps> = ({
                   <span>{lang === 'ar' ? 'توليد موقف آخر' : 'Change Scenario'}</span>
                 </button>
 
-                <span className="text-xs font-black text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+                <span className="hidden" aria-hidden="true">
                   المشهد رقم {activePayload.numericId} ({activePayload.scenarioId})
                 </span>
               </div>

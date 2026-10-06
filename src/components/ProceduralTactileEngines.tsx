@@ -33,10 +33,13 @@ import {
   MessageSquare,
   Home,
   CheckCircle,
+  AlertCircle,
+  XCircle,
 } from 'lucide-react';
 import { Language } from '../types';
 import { ProceduralEngineType, InternalCatalogueScenario, RAFIC_INTERNAL_CATALOGUE } from '../services/raficInternalCatalogue';
 import { playPeaceChime, playSoftTap } from '../utils/audio';
+import { recordScenarioAttempt, addReinforcementNeed } from '../services/learningStateManager';
 
 export interface TactileEngineProps {
   scenarioId?: number | string;
@@ -100,9 +103,19 @@ export const MasterKineticScenarioCanvas: React.FC<TactileEngineProps> = ({
     return found ? found.numericId : 1;
   })();
 
+  const formattedScenId = `SCN_${numericId.toString().padStart(3, '0')}`;
+
   // Interactive Kinetic States
   const [activeStep, setActiveStep] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [mistakeFeedback, setMistakeFeedback] = useState<string | null>(null);
+  const [selectedDecision, setSelectedDecision] = useState<string | null>(null);
+
+  // SCN_009 Specific States
+  const [tayammumStep, setTayammumStep] = useState<number>(0); // 0: condition check, 1: tap, 2: face, 3: hands
+  const [tayammumConditionOk, setTayammumConditionOk] = useState<boolean>(false);
+
+  // Other Scenario States
   const [flightPosture, setFlightPosture] = useState<'takbeer' | 'ruku' | 'sujud'>('takbeer');
   const [rakahChoice, setRakahChoice] = useState<3 | 4>(3);
   const [saCount, setSaCount] = useState<number>(2.5);
@@ -123,14 +136,26 @@ export const MasterKineticScenarioCanvas: React.FC<TactileEngineProps> = ({
   // Scenario 28 Calendar block state
   const [prayerBreakBooked, setPrayerBreakBooked] = useState(false);
 
-  const handleAction = (label?: string) => {
+  // Triggers mistake feedback & learning state reinforcement
+  const triggerMistake = (conceptTag: string, explanationAr: string) => {
+    playSoftTap();
+    setMistakeFeedback(explanationAr);
+    addReinforcementNeed(conceptTag);
+    recordScenarioAttempt(formattedScenId, false, [conceptTag]);
+  };
+
+  const handleAction = (label?: string, conceptsCovered: string[] = []) => {
     playPeaceChime();
+    setMistakeFeedback(null);
     setIsCompleted(true);
     setActionTriggered(true);
 
     if (numericId === 23) {
       setIdScanStep('stamped');
     }
+
+    // Record success attempt with covered concepts
+    recordScenarioAttempt(formattedScenId, true, conceptsCovered);
 
     onComplete(tranquilityDelta, label || conceptTitle);
   };
@@ -162,284 +187,619 @@ export const MasterKineticScenarioCanvas: React.FC<TactileEngineProps> = ({
         <div className="relative w-full min-h-[220px] sm:min-h-[240px] rounded-2xl bg-black/35 border border-white/10 p-4 flex flex-col items-center justify-center overflow-hidden mb-4">
           {/* SCENARIO 1: Missed First Tashahhud */}
           {numericId === 1 && (
-            <svg viewBox="0 0 280 150" className="w-full max-w-xs h-36">
-              <ellipse cx="140" cy="130" rx="90" ry="12" fill="#10B981" fillOpacity="0.2" stroke="#10B981" strokeWidth="1" />
-              <g className="animate-fade-in">
-                <circle cx="150" cy="40" r="14" fill="#F8FAFC" stroke="#1E293B" strokeWidth="2.5" />
-                <path d="M 136 58 Q 150 54 164 58 L 160 115 L 140 115 Z" fill="#E2E8F0" stroke="#1E293B" strokeWidth="2.5" />
-                <line x1="145" y1="115" x2="145" y2="132" stroke="#334155" strokeWidth="3.5" strokeLinecap="round" />
-                <line x1="155" y1="115" x2="155" y2="132" stroke="#334155" strokeWidth="3.5" strokeLinecap="round" />
-                <circle cx="150" cy="40" r="18" fill="none" stroke="#10B981" strokeWidth="2" strokeDasharray="3 3" />
-                <text x="150" y="20" fontSize="9" fill="#34D399" fontWeight="bold" textAnchor="middle">الركعة الثالثة (استتمام القيام)</text>
-              </g>
-              <g transform="translate(60, 45)">
-                <rect x="0" y="0" width="55" height="60" rx="8" fill="#EF4444" fillOpacity="0.2" stroke="#EF4444" strokeWidth="2" />
-                <text x="27" y="26" fontSize="9" fill="#F87171" fontWeight="bold" textAnchor="middle">لا ترجع</text>
-                <text x="27" y="42" fontSize="8" fill="#FCA5A5" textAnchor="middle">للجلوس</text>
-                <line x1="8" y1="52" x2="47" y2="8" stroke="#EF4444" strokeWidth="2.5" />
-              </g>
-            </svg>
+            <div className="flex flex-col items-center justify-center gap-3 w-full">
+              <svg viewBox="0 0 280 120" className="w-full max-w-xs h-28">
+                <ellipse cx="140" cy="105" rx="90" ry="12" fill="#10B981" fillOpacity="0.2" stroke="#10B981" strokeWidth="1" />
+                <g className="animate-fade-in">
+                  <circle cx="150" cy="30" r="14" fill="#F8FAFC" stroke="#1E293B" strokeWidth="2.5" />
+                  <path d="M 136 48 Q 150 44 164 48 L 160 95 L 140 95 Z" fill="#E2E8F0" stroke="#1E293B" strokeWidth="2.5" />
+                  <line x1="145" y1="95" x2="145" y2="110" stroke="#334155" strokeWidth="3.5" strokeLinecap="round" />
+                  <line x1="155" y1="95" x2="155" y2="110" stroke="#334155" strokeWidth="3.5" strokeLinecap="round" />
+                  <text x="150" y="15" fontSize="9" fill="#34D399" fontWeight="bold" textAnchor="middle">استتممت قائماً للركعة الثالثة</text>
+                </g>
+              </svg>
+
+              <div className="space-y-2 text-center w-full max-w-sm">
+                <span className="text-xs text-stone-200 block font-bold">نسيت التشهد الأول واستتممت قائماً؛ كيف تتصرف؟</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => triggerMistake('prayer_first_tashahhud_continuation', 'إذا استتم القائم إلى الركعة الثالثة يكره له الرجوع إلى الجلوس للتشهد الأول، ويمضي في صلاته ويجبر النقص بسجدتي السهو قبل السلام.')}
+                    className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-rose-200 text-xs font-bold transition-all cursor-pointer text-start"
+                  >
+                    ❌ الرجوع للجلوس لقراءة التشهد الأول
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleAction('الاستمرار في القيام وسجود السهو قبل السلام', ['prayer_first_tashahhud_continuation', 'sujud_sahw_timing']);
+                    }}
+                    className="p-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold transition-all cursor-pointer text-start"
+                  >
+                    ✓ الاستمرار في القيام وسجود السهو قبل السلام
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
 
           {/* SCENARIO 2: Doubt in Rak'ah Count */}
           {numericId === 2 && (
-            <div className="flex items-center justify-center gap-6 my-auto">
-              <div
-                onClick={() => {
-                  playPeaceChime();
-                  setRakahChoice(3);
-                }}
-                className={`p-4 sm:p-5 rounded-2xl border-2 flex flex-col items-center cursor-pointer transition-all ${
-                  rakahChoice === 3
-                    ? 'bg-emerald-500/25 border-emerald-400 text-emerald-200 shadow-xl scale-105'
-                    : 'bg-white/5 border-white/20 text-white/60'
-                }`}
-              >
-                <span className="text-4xl font-black">٣</span>
-                <span className="text-xs font-bold mt-1 text-emerald-300">اليقين (الأقل) ✓</span>
-                <span className="text-[10px] text-emerald-100/70">البناء على ما استيقن</span>
+            <div className="flex flex-col items-center justify-center gap-3 w-full max-w-sm">
+              <div className="flex items-center justify-center gap-6 my-auto">
+                <div
+                  onClick={() => {
+                    playPeaceChime();
+                    setRakahChoice(3);
+                  }}
+                  className={`p-3.5 sm:p-4 rounded-2xl border-2 flex flex-col items-center cursor-pointer transition-all ${
+                    rakahChoice === 3
+                      ? 'bg-emerald-500/25 border-emerald-400 text-emerald-200 shadow-xl scale-105'
+                      : 'bg-white/5 border-white/20 text-white/60'
+                  }`}
+                >
+                  <span className="text-3xl font-black">٣</span>
+                  <span className="text-xs font-bold mt-1 text-emerald-300">اليقين (الأقل) ✓</span>
+                </div>
+                <div className="text-white/40 text-xl font-black">VS</div>
+                <div className="p-3.5 sm:p-4 rounded-2xl border border-white/10 bg-white/5 opacity-50 flex flex-col items-center line-through text-rose-300">
+                  <span className="text-3xl font-black">٤</span>
+                  <span className="text-xs font-bold mt-1">الشك (يطرح) ✕</span>
+                </div>
               </div>
-              <div className="text-white/40 text-2xl font-black">VS</div>
-              <div className="p-4 sm:p-5 rounded-2xl border border-white/10 bg-white/5 opacity-50 flex flex-col items-center line-through text-rose-300">
-                <span className="text-4xl font-black">٤</span>
-                <span className="text-xs font-bold mt-1">الشك (يطرح) ✕</span>
-                <span className="text-[10px] text-rose-200/70">لا عبرة بالتردد</span>
+
+              <div className="grid grid-cols-1 gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => triggerMistake('prayer_rakah_doubt_certainty', 'عند التردد بين 3 و4 يجب طرد الشك والبناء على اليقين وهو الأقل (3)، ثم الإتيان بالركعة الرابعة وسجود السهو قبل السلام.')}
+                  className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-rose-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ❌ البناء على الأكثر (4) أو إعادة الصلاة من جديد
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAction('البناء على اليقين (3) والإتيان بالرابعة وسجود السهو', ['prayer_rakah_doubt_certainty', 'sujud_sahw_timing'])}
+                  className="p-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ✓ البناء على اليقين (3) والإتيان بالرابعة وسجود السهو
+                </button>
               </div>
             </div>
           )}
 
           {/* SCENARIO 3: Involuntary Laughter or Slip of Speech */}
           {numericId === 3 && (
-            <svg viewBox="0 0 240 140" className="w-56 h-36">
-              <circle cx="120" cy="70" r="50" fill="none" stroke="#F59E0B" strokeWidth="1.5" strokeDasharray="4 4" className="animate-pulse opacity-60" />
-              <circle cx="120" cy="70" r="30" fill="#10B981" fillOpacity="0.15" stroke="#10B981" strokeWidth="2" />
-              <circle cx="120" cy="40" r="12" fill="#F8FAFC" stroke="#1E293B" strokeWidth="2" />
-              <path d="M 108 58 Q 120 54 132 58 L 128 110 L 112 110 Z" fill="#E2E8F0" stroke="#1E293B" strokeWidth="2" />
-              <text x="120" y="130" fontSize="9" fill="#34D399" fontWeight="bold" textAnchor="middle">حلقة الخشوع الذهبية (استعادة السكينة)</text>
-            </svg>
+            <div className="flex flex-col items-center justify-center gap-3 w-full max-w-sm">
+              <svg viewBox="0 0 240 100" className="w-56 h-24">
+                <circle cx="120" cy="50" r="40" fill="none" stroke="#F59E0B" strokeWidth="1.5" strokeDasharray="4 4" className="animate-pulse opacity-60" />
+                <circle cx="120" cy="50" r="24" fill="#10B981" fillOpacity="0.15" stroke="#10B981" strokeWidth="2" />
+                <circle cx="120" cy="30" r="10" fill="#F8FAFC" stroke="#1E293B" strokeWidth="2" />
+                <path d="M 110 44 Q 120 40 130 44 L 126 80 L 114 80 Z" fill="#E2E8F0" stroke="#1E293B" strokeWidth="2" />
+                <text x="120" y="94" fontSize="8" fill="#34D399" fontWeight="bold" textAnchor="middle">استعادة الخشوع والسكينة فوراً</text>
+              </svg>
+
+              <div className="grid grid-cols-1 gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => triggerMistake('prayer_involuntary_actions', 'الضحك عارضاً غلبة دون تعمد والكلام السهو لا يبطلان الصلاة بل يكفي كتمه ومواصلة الصلاة بالخشوع.')}
+                  className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-rose-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ❌ قطع الصلاة فوراً وإعادتها من الأول
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAction('كتم الضحك والاستغفار في النفس ومواصلة الصلاة', ['prayer_involuntary_actions', 'salah_focus_tranquility'])}
+                  className="p-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ✓ كتم الضحك والاستغفار في النفس ومواصلة الصلاة بالخشوع
+                </button>
+              </div>
+            </div>
           )}
 
           {/* SCENARIO 4: Missed Essential Pillar */}
           {numericId === 4 && (
-            <div className="flex items-center justify-center gap-3 w-full max-w-sm">
-              <div className="p-3 rounded-xl border border-amber-500/40 bg-amber-500/10 text-center flex-1">
-                <span className="text-[10px] text-amber-300 block font-bold">الركعة 1 (ناقصة سجدة)</span>
-                <span className="text-xs font-black text-rose-300">ملغاة ✕</span>
+            <div className="flex flex-col items-center justify-center gap-3 w-full max-w-sm">
+              <div className="flex items-center justify-center gap-3 w-full">
+                <div className="p-2.5 rounded-xl border border-amber-500/40 bg-amber-500/10 text-center flex-1">
+                  <span className="text-[10px] text-amber-300 block font-bold">الركعة 1 (ناقصة سجدة)</span>
+                  <span className="text-xs font-black text-rose-300">ملغاة ✕</span>
+                </div>
+                <ArrowRight className="w-4 h-4 text-emerald-400 shrink-0" />
+                <div className="p-2.5 rounded-xl border-2 border-emerald-400 bg-emerald-500/20 text-center flex-1 shadow-lg">
+                  <span className="text-[10px] text-emerald-200 block font-bold">الركعة 2 (الحالية)</span>
+                  <span className="text-xs font-black text-emerald-300">تقوم مقامها ✓</span>
+                </div>
               </div>
-              <ArrowRight className="w-5 h-5 text-emerald-400" />
-              <div className="p-3 rounded-xl border-2 border-emerald-400 bg-emerald-500/20 text-center flex-1 shadow-lg">
-                <span className="text-[10px] text-emerald-200 block font-bold">الركعة 2 (الحالية)</span>
-                <span className="text-xs font-black text-emerald-300">تقوم مقامها ✓</span>
+
+              <div className="grid grid-cols-1 gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => triggerMistake('prayer_missing_pillar_remedy', 'السجود ركن أساسي لا يسقط بالسهو ولا يجبره سجود السهو وحده، بل تجب إلغاء الركعة الناقصة واحتساب الحالية بدلاً عنها.')}
+                  className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-rose-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ❌ الاكتفاء بسجود السهو دون تدارك الركعة الملغاة
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAction('إلغاء الركعة الناقصة واحتساب الركعة الحالية بدلاً عنها', ['prayer_missing_pillar_remedy', 'sujud_sahw_timing'])}
+                  className="p-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ✓ إلغاء الركعة الناقصة واحتساب الركعة الحالية بدلاً عنها
+                </button>
               </div>
             </div>
           )}
 
           {/* SCENARIO 5: Khanzab Whispers */}
           {numericId === 5 && (
-            <svg viewBox="0 0 240 140" className="w-56 h-36">
-              <g transform="translate(110, 30)">
-                <circle cx="20" cy="20" r="14" fill="#F8FAFC" stroke="#1E293B" strokeWidth="2" />
-                <path d="M 10 20 L -15 35" stroke="#38BDF8" strokeWidth="2" strokeDasharray="2 2" />
-                <path d="M 10 25 L -15 42" stroke="#38BDF8" strokeWidth="2" strokeDasharray="2 2" />
-                <path d="M 10 30 L -15 50" stroke="#38BDF8" strokeWidth="2" strokeDasharray="2 2" />
-                <text x="-25" y="45" fontSize="8" fill="#38BDF8" textAnchor="end">نفث خفيف 3× عن اليسار</text>
-              </g>
-              <text x="120" y="125" fontSize="9" fill="#A7F3D0" fontWeight="bold" textAnchor="middle">الاستعاذة بالله وطرد وساوس خنزب 🛡️</text>
-            </svg>
+            <div className="flex flex-col items-center justify-center gap-3 w-full max-w-sm">
+              <svg viewBox="0 0 240 100" className="w-56 h-24">
+                <g transform="translate(110, 15)">
+                  <circle cx="20" cy="20" r="12" fill="#F8FAFC" stroke="#1E293B" strokeWidth="2" />
+                  <path d="M 10 20 L -15 35" stroke="#38BDF8" strokeWidth="2" strokeDasharray="2 2" />
+                  <path d="M 10 25 L -15 42" stroke="#38BDF8" strokeWidth="2" strokeDasharray="2 2" />
+                  <path d="M 10 30 L -15 50" stroke="#38BDF8" strokeWidth="2" strokeDasharray="2 2" />
+                  <text x="-25" y="45" fontSize="8" fill="#38BDF8" textAnchor="end">نفث خفيف 3× عن اليسار</text>
+                </g>
+                <text x="120" y="90" fontSize="8.5" fill="#A7F3D0" fontWeight="bold" textAnchor="middle">الاستعاذة بالله وطرد وساوس خنزب 🛡️</text>
+              </svg>
+
+              <div className="grid grid-cols-1 gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => triggerMistake('prayer_waswas_khanzab_response', 'العلاج النبوي لوسواس خنزب هو التفات خفيف لليسار مع نفث خفيف 3 مرات والاستعاذة بالله دون قطع الصلاة أو الاسترسال مع الحديث.')}
+                  className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-rose-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ❌ الاسترسال مع الأفكار أو التحدث بصوت عالٍ بالصلاة
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAction('النفث الخفيف 3 مرات عن اليسار والتعوذ بالله من خنزب', ['prayer_waswas_khanzab_response', 'salah_focus_tranquility'])}
+                  className="p-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ✓ النفث الخفيف 3 مرات عن اليسار والتعوذ بالله من خنزب
+                </button>
+              </div>
+            </div>
           )}
 
           {/* SCENARIO 6: Cast / Bandage Wiping */}
           {numericId === 6 && (
-            <div className="flex flex-col items-center justify-center gap-2">
-              <svg viewBox="0 0 240 100" className="w-56 h-28">
-                <rect x="50" y="35" width="140" height="30" rx="15" fill="#E2E8F0" stroke="#94A3B8" strokeWidth="2" />
-                <line x1="80" y1="35" x2="70" y2="65" stroke="#CBD5E1" strokeWidth="2" />
-                <line x1="110" y1="35" x2="100" y2="65" stroke="#CBD5E1" strokeWidth="2" />
-                <line x1="140" y1="35" x2="130" y2="65" stroke="#CBD5E1" strokeWidth="2" />
+            <div className="flex flex-col items-center justify-center gap-3 w-full max-w-sm">
+              <svg viewBox="0 0 240 80" className="w-56 h-20">
+                <rect x="50" y="25" width="140" height="30" rx="15" fill="#E2E8F0" stroke="#94A3B8" strokeWidth="2" />
+                <line x1="80" y1="25" x2="70" y2="55" stroke="#CBD5E1" strokeWidth="2" />
+                <line x1="110" y1="25" x2="100" y2="55" stroke="#CBD5E1" strokeWidth="2" />
+                <line x1="140" y1="25" x2="130" y2="55" stroke="#CBD5E1" strokeWidth="2" />
                 <g className={wipedBandage ? 'translate-x-12 transition-transform duration-700' : ''}>
-                  <path d="M 90 20 Q 120 15 150 20" stroke="#38BDF8" strokeWidth="3" fill="none" strokeDasharray="3 3" />
-                  <circle cx="120" cy="22" r="5" fill="#38BDF8" />
+                  <path d="M 90 10 Q 120 5 150 10" stroke="#38BDF8" strokeWidth="3" fill="none" strokeDasharray="3 3" />
+                  <circle cx="120" cy="12" r="5" fill="#38BDF8" />
                 </g>
-                <text x="120" y="85" fontSize="9" fill="#38BDF8" fontWeight="bold" textAnchor="middle">
+                <text x="120" y="72" fontSize="8.5" fill="#38BDF8" fontWeight="bold" textAnchor="middle">
                   {wipedBandage ? 'تمت المسحة الواحدة بالبلل بنجاح ✓' : 'مسحة واحدة خفيفة باليد المبتلة فوق الجبيرة'}
                 </text>
               </svg>
+
+              <div className="grid grid-cols-1 gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => triggerMistake('wudu_bandage_cast_wiping', 'نزع الضمادة أو الجبيرة يسهم في إلحاق الضرر بالعضو، والواجب هو تمرير الكف المبللة برفق مسحة واحدة فقط.')}
+                  className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-rose-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ❌ نزع الضمادة وغسل الجرح بالماء رغم ألم الكسر
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWipedBandage(true);
+                    handleAction('تمرير بلل الكف برفق فوق الجبيرة مسحة واحدة', ['wudu_bandage_cast_wiping', 'wudu_purity_concessions']);
+                  }}
+                  className="p-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ✓ تمرير بلل الكف برفق فوق الجبيرة مسحة واحدة
+                </button>
+              </div>
             </div>
           )}
 
           {/* SCENARIO 7: Minimal Wudu in Extreme Cold */}
           {numericId === 7 && (
-            <div className="flex flex-col items-center justify-center gap-2">
+            <div className="flex flex-col items-center justify-center gap-3 w-full max-w-sm">
               <div className="flex items-center gap-3">
-                <span className="text-3xl">❄️</span>
-                <div className="p-3 rounded-2xl bg-sky-500/20 border border-sky-400/40 text-center">
+                <span className="text-2xl">❄️</span>
+                <div className="p-2.5 rounded-2xl bg-sky-500/20 border border-sky-400/40 text-center">
                   <span className="text-[10px] text-sky-200 block">معيار التيسير في البرد القارس</span>
-                  <span className="text-sm font-black text-sky-300">غسلة واحدة شاملة لكل عضو (1/1) ✓</span>
+                  <span className="text-xs font-black text-sky-300">غسلة واحدة شاملة لكل عضو (1/1) ✓</span>
                 </div>
-                <span className="text-3xl">💧</span>
+                <span className="text-2xl">💧</span>
               </div>
-              <span className="text-[11px] text-emerald-300 font-bold mt-1">الواجب المجزئ يرفع الحرج والمشقة تماماً</span>
+
+              <div className="grid grid-cols-1 gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => triggerMistake('wudu_cold_weather_concession', 'غسل الأعضاء 3 مرات ليس واجباً، بل الواجب الفرض هو غسلة واحدة شاملة ترفع عنك الحرج والمشقة بالثلج.')}
+                  className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-rose-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ❌ الإصرار على الغسل 3 مرات وتكراره مع شدة البرد والمشقة
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAction('الاكتفاء بغسلة واحدة تامة لكل عضو رفعاً للمشقة', ['wudu_cold_weather_concession', 'wudu_purity_concessions'])}
+                  className="p-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ✓ الاكتفاء بغسلة واحدة تامة لكل عضو رفعاً للمشقة
+                </button>
+              </div>
             </div>
           )}
 
           {/* SCENARIO 8: Compulsive Gas/Wind Doubt */}
           {numericId === 8 && (
-            <div className="flex flex-col items-center justify-center gap-2">
-              <div className="p-4 rounded-2xl bg-emerald-500/20 border-2 border-emerald-400 text-center shadow-lg max-w-xs">
-                <ShieldCheck className="w-8 h-8 text-emerald-400 mx-auto mb-1" />
+            <div className="flex flex-col items-center justify-center gap-3 w-full max-w-sm">
+              <div className="p-3 rounded-2xl bg-emerald-500/20 border-2 border-emerald-400 text-center shadow-lg w-full">
+                <ShieldCheck className="w-6 h-6 text-emerald-400 mx-auto mb-1" />
                 <span className="text-xs font-black text-emerald-200 block">درع اليقين المحكم</span>
-                <span className="text-[11px] text-emerald-100/90 font-medium">«اليقين لا يزول بالشك» — لا تنصرف حتى تسمع صوتاً أو تجد ريحاً</span>
+                <span className="text-[10px] text-emerald-100/90 font-medium">«اليقين لا يزول بالشك» — لا تنصرف حتى تسمع صوتاً أو تجد ريحاً</span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => triggerMistake('wudu_doubt_certainty_principle', '«اليقين لا يزول بالشك»؛ طهارتك باقية بيقين، ولا يجوز قطع الصلاة لمجرد الشك والتخيل ما لم يتحقق الصوت أو الرائحة.')}
+                  className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-rose-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ❌ قطع الصلاة فوراً وإعادة الوضوء مع كل حركة في البطن
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAction('الثبات في الصلاة وطرد الشكوك حتى التيقن التام', ['wudu_doubt_certainty_principle', 'salah_focus_tranquility'])}
+                  className="p-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ✓ الثبات في الصلاة وطرد الشكوك حتى اليقين التام
+                </button>
               </div>
             </div>
           )}
 
           {/* SCENARIO 9: Tayammum (Dry Ablution) */}
           {numericId === 9 && (
-            <div className="flex flex-col items-center justify-center gap-2">
-              <svg viewBox="0 0 240 100" className="w-56 h-28">
-                <rect x="40" y="60" width="160" height="25" rx="8" fill="#78716C" stroke="#A8A29E" strokeWidth="2" />
-                <text x="120" y="77" fontSize="9" fill="#F5F5F4" fontWeight="bold" textAnchor="middle">صعيد طاهر (حجر أو تراب)</text>
-                <g className="animate-bounce">
-                  <ellipse cx="90" cy="35" rx="14" ry="10" fill="#FDE047" fillOpacity="0.3" stroke="#FDE047" strokeWidth="2" />
-                  <ellipse cx="150" cy="35" rx="14" ry="10" fill="#FDE047" fillOpacity="0.3" stroke="#FDE047" strokeWidth="2" />
-                </g>
-              </svg>
-              <span className="text-[11px] text-amber-300 font-bold">ضربة واحدة خفيفة ثم مسح الوجه والكفين</span>
+            <div className="flex flex-col items-center justify-center gap-3 w-full">
+              {/* Step Progress Indicator */}
+              <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-300">
+                <span className={`px-2.5 py-0.5 rounded-full border ${tayammumStep === 0 ? 'bg-amber-500/30 border-amber-400 text-white' : 'bg-white/10 border-white/20 text-white/60'}`}>
+                  1. شروط التيمم
+                </span>
+                <span>←</span>
+                <span className={`px-2.5 py-0.5 rounded-full border ${tayammumStep === 1 ? 'bg-amber-500/30 border-amber-400 text-white' : 'bg-white/10 border-white/20 text-white/60'}`}>
+                  2. ضربة التراب
+                </span>
+                <span>←</span>
+                <span className={`px-2.5 py-0.5 rounded-full border ${tayammumStep >= 2 ? 'bg-amber-500/30 border-amber-400 text-white' : 'bg-white/10 border-white/20 text-white/60'}`}>
+                  3. مسح الوجه والكفين
+                </span>
+              </div>
+
+              {/* Stage 0: Conditions Check */}
+              {tayammumStep === 0 && (
+                <div className="space-y-2 text-center w-full max-w-sm">
+                  <span className="text-xs text-stone-200 block font-bold">متى يُشرع لك التيمم؟ (اختر القرار الصحيح)</span>
+                  <div className="grid grid-cols-1 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => triggerMistake('tayammum_conditions', 'التيمم رخصة عند فقد الماء بالكامل أو العجز عن استعماله لخوف الضرر بالمرض، وليس لمجرد الكسل أو البرد العادي مع توفر الماء.')}
+                      className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-rose-200 text-xs font-bold text-start transition-all cursor-pointer"
+                    >
+                      ❌ عند الشعور بالكسل عن الوضوء أو البرد العادي مع توفر الماء
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playPeaceChime();
+                        setMistakeFeedback(null);
+                        setTayammumConditionOk(true);
+                        setTayammumStep(1);
+                      }}
+                      className="p-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold text-start transition-all cursor-pointer"
+                    >
+                      ✓ عند فقد الماء تماماً أو العجز عن استعماله لخوف الضرر بالمرض
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Stage 1: Tap Dry Earth */}
+              {tayammumStep === 1 && (
+                <div className="flex flex-col items-center gap-2">
+                  <svg viewBox="0 0 240 80" className="w-56 h-20">
+                    <rect x="40" y="45" width="160" height="25" rx="8" fill="#78716C" stroke="#A8A29E" strokeWidth="2" />
+                    <text x="120" y="62" fontSize="9" fill="#F5F5F4" fontWeight="bold" textAnchor="middle">صعيد طاهر (حجر أو تراب)</text>
+                    <g className="animate-bounce">
+                      <ellipse cx="90" cy="25" rx="14" ry="10" fill="#FDE047" fillOpacity="0.4" stroke="#FDE047" strokeWidth="2" />
+                      <ellipse cx="150" cy="25" rx="14" ry="10" fill="#FDE047" fillOpacity="0.4" stroke="#FDE047" strokeWidth="2" />
+                    </g>
+                  </svg>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playPeaceChime();
+                      setTayammumStep(2);
+                    }}
+                    className="px-4 py-2 rounded-xl bg-amber-500 text-slate-950 font-black text-xs hover:bg-amber-400 transition-all cursor-pointer shadow-md"
+                  >
+                    (انقر) ضربة واحدة خفيفة باليدين على الصعيد الطاهر ✋
+                  </button>
+                </div>
+              )}
+
+              {/* Stage 2: Wipe Face & Hands */}
+              {tayammumStep === 2 && (
+                <div className="space-y-2 text-center w-full max-w-sm">
+                  <span className="text-xs text-amber-200 block font-bold">الصفة الصحيحة لمسح التيمم باليدين:</span>
+                  <div className="grid grid-cols-1 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => triggerMistake('tayammum_action_sequence', 'السنة المعتمدة ضربة واحدة يمسح بها الوجه ثم ظاهر الكفين فقط، ولا يجب المسح إلى المرفقين في التيمم.')}
+                      className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-rose-200 text-xs font-bold text-start transition-all cursor-pointer"
+                    >
+                      ❌ المسح عدة ضربات مع غسل المرفقين كالوضوء
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTayammumDone(true);
+                        handleAction('إتمام صفة التيمم الشاملة بنجاح', ['tayammum_conditions', 'tayammum_action_sequence', 'tayammum_process']);
+                      }}
+                      className="p-2 rounded-xl bg-emerald-500/25 hover:bg-emerald-500/35 border border-emerald-400/50 text-emerald-200 text-xs font-bold text-start transition-all cursor-pointer"
+                    >
+                      ✓ مسح الوجه باليدين ثم مسح ظاهري الكفين بضربة واحدة ✋
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
           {/* SCENARIO 10: Street Mud Splashes */}
           {numericId === 10 && (
-            <div className="flex items-center justify-center gap-4">
-              <div className="p-3 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 text-center">
-                <Search className="w-6 h-6 text-amber-300 mx-auto mb-1" />
+            <div className="flex flex-col items-center justify-center gap-3 w-full max-w-sm">
+              <div className="p-3 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 text-center w-full">
+                <Search className="w-5 h-5 text-amber-300 mx-auto mb-1" />
                 <span className="text-xs font-black text-emerald-300 block">فحص رذاذ الوحل والطين</span>
                 <span className="text-[10px] text-emerald-100">معفو عنه شرعاً • الأصل بقاء الطهارة</span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => triggerMistake('purity_street_mud_forgiveness', 'طين الشوارع ورذاذ الطرقات معفو عنه شرعاً للأصل وهو بقاء الطهارة ودفع الحرج والشقّة عن المسلم.')}
+                  className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-rose-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ❌ غسل الثياب بالكامل وإعادة الوضوء بسبب رذاذ الطريق
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAction('اعتبار رذاذ الطريق معفواً عنه ومواصلة الصلاة', ['purity_street_mud_forgiveness', 'wudu_purity_concessions'])}
+                  className="p-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ✓ اعتبار رذاذ الطريق معفواً عنه ومواصلة الصلاة
+                </button>
               </div>
             </div>
           )}
 
           {/* SCENARIO 11: Seated Airplane Prayer */}
           {numericId === 11 && (
-            <div className="flex flex-col items-center justify-center gap-3 w-full">
+            <div className="flex flex-col items-center justify-center gap-3 w-full max-w-sm">
               <div className="flex items-center justify-center gap-3 w-full">
-                <div className="p-3 rounded-2xl bg-white/5 border border-white/10 flex flex-col items-center">
-                  <Plane className="w-5 h-5 text-sky-400 mb-1" />
+                <div className="p-2.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col items-center">
+                  <Plane className="w-4 h-4 text-sky-400 mb-1" />
                   <span className="text-[9px] text-sky-200 font-mono">في الجو ☁️</span>
                 </div>
 
-                <div className="p-3 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center gap-4">
+                <div className="p-2 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setFlightPosture('takbeer')}
-                    className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
-                      flightPosture === 'takbeer' ? 'bg-emerald-400 text-slate-900 shadow-md scale-105' : 'bg-white/10 text-white'
+                    className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                      flightPosture === 'takbeer' ? 'bg-emerald-400 text-slate-900 shadow-md' : 'bg-white/10 text-white'
                     }`}
                   >
-                    1. تكبيرة الإحرام جالساً
+                    1. التكبير
                   </button>
                   <button
                     type="button"
                     onClick={() => setFlightPosture('ruku')}
-                    className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
-                      flightPosture === 'ruku' ? 'bg-emerald-400 text-slate-900 shadow-md scale-105' : 'bg-white/10 text-white'
+                    className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                      flightPosture === 'ruku' ? 'bg-emerald-400 text-slate-900 shadow-md' : 'bg-white/10 text-white'
                     }`}
                   >
-                    2. إيماء الركوع (~30°)
+                    2. الركوع
                   </button>
                   <button
                     type="button"
                     onClick={() => setFlightPosture('sujud')}
-                    className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
-                      flightPosture === 'sujud' ? 'bg-emerald-400 text-slate-900 shadow-md scale-105' : 'bg-white/10 text-white'
+                    className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                      flightPosture === 'sujud' ? 'bg-emerald-400 text-slate-900 shadow-md' : 'bg-white/10 text-white'
                     }`}
                   >
-                    3. إيماء السجود الأخفض (~60°)
+                    3. السجود
                   </button>
                 </div>
               </div>
 
-              <div className="text-center text-xs font-bold text-amber-300">
-                {flightPosture === 'takbeer' && '💺 وضعية التكبير: الجلوس باعتدال على المقعد واستقبال جهة القبلة قدر الاستطاعة'}
-                {flightPosture === 'ruku' && '💺 وضعية الركوع: الانحناء الخفيف بالرأس والجذع للأمام بنحو 30 درجة'}
-                {flightPosture === 'sujud' && '💺 وضعية السجود: الانحناء الأخفض للأمام بنحو 60 درجة بحيث يكون أخفض من الركوع'}
+              <div className="grid grid-cols-1 gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => triggerMistake('prayer_airplane_travel_rules', 'لا يجوز إخراج الصلاة المكتوبة عن وقتها في السفر بالطائرة؛ بل تصلى بالجلوس والإيماء بالركوع والسجود حسب الاستطاعة.')}
+                  className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-rose-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ❌ تأخير الصلاة المكتوبة حتى هبوط الطائرة وخروج وقتها
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAction('أداء الصلاة جالساً بالطائرة بالإيماء للركوع والسجود', ['prayer_airplane_travel_rules', 'travel_salah_concessions'])}
+                  className="p-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ✓ أداء الصلاة جالساً بالطائرة بالإيماء للركوع والسجود
+                </button>
               </div>
             </div>
           )}
 
           {/* SCENARIO 12: Train / Bus In-Motion Prayer */}
           {numericId === 12 && (
-            <div className="flex flex-col items-center justify-center gap-2">
-              <svg viewBox="0 0 260 110" className="w-64 h-28">
-                <rect x="20" y="15" width="220" height="80" rx="12" fill="#1E293B" stroke="#475569" strokeWidth="2" />
-                <rect x="35" y="25" width="45" height="35" rx="6" fill="#38BDF8" fillOpacity="0.3" stroke="#38BDF8" strokeWidth="1" />
-                <rect x="90" y="25" width="45" height="35" rx="6" fill="#38BDF8" fillOpacity="0.3" stroke="#38BDF8" strokeWidth="1" />
-                <line x1="20" y1="75" x2="240" y2="75" stroke="#E2E8F0" strokeWidth="3" strokeLinecap="round" />
-                <circle cx="170" cy="40" r="10" fill="#F8FAFC" stroke="#10B981" strokeWidth="2" />
-                <path d="M 162 55 Q 170 52 178 55 L 176 80 L 164 80 Z" fill="#E2E8F0" />
-                <text x="130" y="102" fontSize="8.5" fill="#38BDF8" fontWeight="bold" textAnchor="middle">الصلاة داخل وسيلة السفر • التكبير لجهة القبلة مع حفظ التوازن</text>
+            <div className="flex flex-col items-center justify-center gap-3 w-full max-w-sm">
+              <svg viewBox="0 0 260 80" className="w-64 h-20">
+                <rect x="20" y="10" width="220" height="60" rx="10" fill="#1E293B" stroke="#475569" strokeWidth="2" />
+                <rect x="35" y="20" width="45" height="25" rx="4" fill="#38BDF8" fillOpacity="0.3" stroke="#38BDF8" strokeWidth="1" />
+                <rect x="90" y="20" width="45" height="25" rx="4" fill="#38BDF8" fillOpacity="0.3" stroke="#38BDF8" strokeWidth="1" />
+                <line x1="20" y1="55" x2="240" y2="55" stroke="#E2E8F0" strokeWidth="3" strokeLinecap="round" />
+                <text x="130" y="72" fontSize="8" fill="#38BDF8" fontWeight="bold" textAnchor="middle">الصلاة داخل وسائل النقل • التكبير لجهة القبلة</text>
               </svg>
+
+              <div className="grid grid-cols-1 gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => triggerMistake('prayer_train_bus_motion_rules', 'عند الصلاة في حافلة أو قطار يسوغ التمسك بالمقابض أو الجلوس لضمان الطمأنينة وعدم السقوط مع استقبال القبلة عند التكبير.')}
+                  className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-rose-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ❌ القيام دون الاستناد للمقابض والمخاطرة بالسقوط
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAction('استقبال القبلة عند التكبير والصلاة بثبات وحفظ التوازن', ['prayer_train_bus_motion_rules', 'travel_salah_concessions'])}
+                  className="p-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ✓ استقبال القبلة عند التكبير والصلاة بثبات وحفظ التوازن
+                </button>
+              </div>
             </div>
           )}
 
           {/* SCENARIO 13: Masbooq in Ruku */}
           {numericId === 13 && (
-            <div className="flex items-center justify-center gap-3">
-              <div className="p-3 rounded-2xl bg-amber-500/20 border border-amber-400/30 text-center">
+            <div className="flex flex-col items-center justify-center gap-3 w-full max-w-sm">
+              <div className="p-3 rounded-2xl bg-amber-500/20 border border-amber-400/30 text-center w-full">
                 <span className="text-[10px] text-amber-200 block">الإمام راكع في الصف</span>
-                <span className="text-xs font-black text-amber-300">تكبيرة الإحرام قائماً ➜ الركوع مباشرة معهم</span>
+                <span className="text-xs font-black text-amber-300">تكبيرة الإحرام قائماً ➜ الهويّ للركوع</span>
               </div>
-              <span className="text-xs font-black text-emerald-300">تُدرك الركعة كاملة ✓</span>
+
+              <div className="grid grid-cols-1 gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => triggerMistake('masbooq_ruku_takbeer_rules', 'تكبيرة الإحرام ركن لا بد أن تؤدى قائماً بانتصاب، ولا تجزئ إذا كبر وهو هويّ وانحناء للركوع.')}
+                  className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-rose-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ❌ التكبير أثناء الانحناء للركوع مباشرة دون انتصاب
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAction('تكبيرة الإحرام قائماً بانتصاب ثم الهويّ للركوع مع الإمام', ['masbooq_ruku_takbeer_rules', 'jamaah_prayer_etiquettes'])}
+                  className="p-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ✓ تكبيرة الإحرام قائماً بانتصاب ثم الهويّ للركوع مع الإمام
+                </button>
+              </div>
             </div>
           )}
 
           {/* SCENARIO 14: Airport Corner Prayer */}
           {numericId === 14 && (
-            <div className="flex items-center justify-center gap-3">
-              <svg viewBox="0 0 240 100" className="w-60 h-28">
-                <rect x="20" y="10" width="200" height="80" rx="10" fill="#0F172A" stroke="#334155" strokeWidth="2" />
-                <line x1="60" y1="10" x2="60" y2="90" stroke="#64748B" strokeWidth="2" strokeDasharray="3 3" />
-                <rect x="90" y="30" width="60" height="45" rx="4" fill="#10B981" fillOpacity="0.4" stroke="#10B981" strokeWidth="1.5" />
-                <circle cx="120" cy="45" r="8" fill="#F59E0B" />
-                <text x="120" y="85" fontSize="8" fill="#A7F3D0" fontWeight="bold" textAnchor="middle">بسط سجادة الجيب في ركن المطار الهادئ 🧭</text>
+            <div className="flex flex-col items-center justify-center gap-3 w-full max-w-sm">
+              <svg viewBox="0 0 240 80" className="w-60 h-20">
+                <rect x="20" y="10" width="200" height="60" rx="8" fill="#0F172A" stroke="#334155" strokeWidth="2" />
+                <line x1="60" y1="10" x2="60" y2="70" stroke="#64748B" strokeWidth="2" strokeDasharray="3 3" />
+                <rect x="90" y="20" width="60" height="35" rx="4" fill="#10B981" fillOpacity="0.4" stroke="#10B981" strokeWidth="1.5" />
+                <circle cx="120" cy="32" r="6" fill="#F59E0B" />
+                <text x="120" y="65" fontSize="8" fill="#A7F3D0" fontWeight="bold" textAnchor="middle">بسط سجادة الجيب في ركن المطار الهادئ 🧭</text>
               </svg>
+
+              <div className="grid grid-cols-1 gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => triggerMistake('prayer_public_space_etiquettes', 'تُكره الصلاة في معابر الناس وممرات المطار؛ والمشروع اختيار ركن هادئ مع وضع سترة لراحة الخاشع والمارين.')}
+                  className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-rose-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ❌ الصلاة وسط ممر المطار المزدحِم وإعاقة المسافرين
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAction('بسط سجادة الجيب في ركن هادئ بالمطار مع سترة', ['prayer_public_space_etiquettes', 'salah_focus_tranquility'])}
+                  className="p-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ✓ بسط سجادة الجيب في ركن هادئ بالمطار مع سترة
+                </button>
+              </div>
             </div>
           )}
 
           {/* SCENARIO 15: Combining for Surgery */}
           {numericId === 15 && (
-            <div className="flex items-center justify-center gap-4">
-              <div className="p-3 rounded-2xl bg-sky-500/20 border border-sky-400/30 text-center">
+            <div className="flex flex-col items-center justify-center gap-3 w-full max-w-sm">
+              <div className="p-3 rounded-2xl bg-sky-500/20 border border-sky-400/30 text-center w-full">
                 <Clock className="w-5 h-5 text-sky-300 mx-auto mb-1" />
                 <span className="text-[10px] text-sky-200 font-bold block">الظهر + العصر</span>
-                <span className="text-xs font-black text-sky-300">جمع تقديم / تأخير</span>
+                <span className="text-xs font-black text-sky-300">جمع تقديم / تأخير للعذر الطبي 🏥</span>
               </div>
-              <span className="text-xs font-black text-emerald-300">رخصة التيسير للمرض والجراحة 🏥</span>
+
+              <div className="grid grid-cols-1 gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => triggerMistake('prayer_medical_combining_rules', 'العمليات الجراحية الممتدة من الأعذار الشرعية المبيحة لجمع الصلاتين تقديمًا أو تأخيراً دون تفويت الفريضة.')}
+                  className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-rose-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ❌ ترك الصلاة بالكامل وإهمالها دون جمع رخصة
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAction('جمع الصلاتين تقديمًا أو تأخيرًا بسبب الجراحة الطبية', ['prayer_medical_combining_rules', 'travel_salah_concessions'])}
+                  className="p-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ✓ جمع الصلاتين تقديمًا أو تأخيرًا بسبب الجراحة الطبية
+                </button>
+              </div>
             </div>
           )}
 
           {/* SCENARIO 16: Non-Muslim Neighbor Gifts */}
           {numericId === 16 && (
-            <div className="flex items-center justify-center gap-3">
-              <svg viewBox="0 0 200 90" className="w-52 h-24">
-                <rect x="65" y="25" width="70" height="55" rx="8" fill="#D97706" stroke="#FDE68A" strokeWidth="2" />
-                <line x1="100" y1="25" x2="100" y2="80" stroke="#FDE68A" strokeWidth="4" />
-                <line x1="65" y1="52" x2="135" y2="52" stroke="#FDE68A" strokeWidth="4" />
-                <circle cx="100" cy="20" r="8" fill="#EF4444" />
-                <text x="100" y="85" fontSize="8" fill="#FDE68A" fontWeight="bold" textAnchor="middle">حلويات الجيران (مباحة وخالية من المحرمات)</text>
+            <div className="flex flex-col items-center justify-center gap-3 w-full max-w-sm">
+              <svg viewBox="0 0 200 70" className="w-48 h-16">
+                <rect x="65" y="15" width="70" height="45" rx="8" fill="#D97706" stroke="#FDE68A" strokeWidth="2" />
+                <line x1="100" y1="15" x2="100" y2="60" stroke="#FDE68A" strokeWidth="3" />
+                <line x1="65" y1="37" x2="135" y2="37" stroke="#FDE68A" strokeWidth="3" />
+                <text x="100" y="68" fontSize="8" fill="#FDE68A" fontWeight="bold" textAnchor="middle">حلويات الجيران المباحة 🎁</text>
               </svg>
+
+              <div className="grid grid-cols-1 gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => triggerMistake('social_ethics_nonmuslim_gifts', 'قبول هدايا الجيران غير المسلمين من البر والإحسان المأمور به شرعاً، ما لم تتضمن محرمات كالخنزير أو الخمر.')}
+                  className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-rose-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ❌ رفض الهدية بفظاظة ظناً أن هدايا غير المسلمين محرمة
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAction('قبول الهدية المباحة بلطف وإحسان صلة للجوار', ['social_ethics_nonmuslim_gifts', 'interfaith_courtesy_ethics'])}
+                  className="p-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ✓ قبول الهدية المباحة بلطف وإحسان صلة للجوار
+                </button>
+              </div>
             </div>
           )}
 
           {/* SCENARIO 17: Bank Usury Clause */}
           {numericId === 17 && (
-            <div className="flex flex-col items-center justify-center gap-2">
+            <div className="flex flex-col items-center justify-center gap-3 w-full max-w-sm">
               <div
                 onClick={() => {
                   playSoftTap();
                   setRibaStruck(!ribaStruck);
                 }}
-                className="p-3.5 rounded-2xl bg-slate-900 border border-slate-700 max-w-xs text-center cursor-pointer hover:border-amber-400 transition-all"
+                className="p-3 rounded-2xl bg-slate-900 border border-slate-700 w-full text-center cursor-pointer hover:border-amber-400 transition-all"
               >
                 <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
                   <span>عقد بنكي / إيجار</span>
@@ -448,60 +808,163 @@ export const MasterKineticScenarioCanvas: React.FC<TactileEngineProps> = ({
                 <div className={`p-2 rounded-xl text-xs font-bold transition-all ${ribaStruck ? 'bg-emerald-950/60 text-emerald-300 line-through border border-emerald-500/40' : 'bg-rose-950/60 text-rose-300 border border-rose-500/40'}`}>
                   {ribaStruck ? 'تم شطب شرط الفائدة الربوية 5% ✓' : 'بند 4: شرط غرامة تأخير بفائدة ربوية 5%'}
                 </div>
-                <span className="text-[10px] text-emerald-400 font-semibold block mt-1">
-                  {ribaStruck ? 'معاملة نقية مبرأة الذمة' : 'شطب البند أو السداد التلقائي لمنع الفائدة'}
-                </span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => triggerMistake('financial_ethics_riba_avoidance', 'الشرط الربوي محرم شرعاً؛ ويجب شطب الشرط الربوي من العقد أو تنظيم السداد التلقائي لتجنب غرامات التأخير الربوية.')}
+                  className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-rose-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ❌ التوقيع على الشرط الربوي بالموافقة دون اعتراض
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAction('شطب بند الفائدة الربوية وتنظيم السداد المالي النقي', ['financial_ethics_riba_avoidance', 'halal_earnings_ethics'])}
+                  className="p-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ✓ شطب بند الفائدة الربوية وتنظيم السداد المالي النقي
+                </button>
               </div>
             </div>
           )}
 
           {/* SCENARIO 18: Supermarket Halal / Kosher Meat */}
           {numericId === 18 && (
-            <div className="flex items-center justify-center gap-3">
-              <svg viewBox="0 0 220 90" className="w-56 h-24">
-                <rect x="20" y="15" width="80" height="60" rx="8" fill="#047857" stroke="#34D399" strokeWidth="1.5" />
-                <text x="60" y="42" fontSize="9" fill="#FFFFFF" fontWeight="bold" textAnchor="middle">ذبيحة أهل الكتاب</text>
-                <text x="60" y="58" fontSize="8" fill="#A7F3D0" textAnchor="middle">حلال ومباحة</text>
-                <rect x="120" y="15" width="80" height="60" rx="8" fill="#0284C7" stroke="#38BDF8" strokeWidth="1.5" />
-                <text x="160" y="42" fontSize="9" fill="#FFFFFF" fontWeight="bold" textAnchor="middle">مأكولات بحرية</text>
-                <text x="160" y="58" fontSize="8" fill="#BAE6FD" textAnchor="middle">حلال طاهرة</text>
+            <div className="flex flex-col items-center justify-center gap-3 w-full max-w-sm">
+              <svg viewBox="0 0 220 70" className="w-56 h-16">
+                <rect x="20" y="10" width="80" height="50" rx="8" fill="#047857" stroke="#34D399" strokeWidth="1.5" />
+                <text x="60" y="32" fontSize="9" fill="#FFFFFF" fontWeight="bold" textAnchor="middle">ذبيحة أهل الكتاب</text>
+                <text x="60" y="48" fontSize="8" fill="#A7F3D0" textAnchor="middle">حلال ومباحة</text>
+                <rect x="120" y="10" width="80" height="50" rx="8" fill="#0284C7" stroke="#38BDF8" strokeWidth="1.5" />
+                <text x="160" y="32" fontSize="9" fill="#FFFFFF" fontWeight="bold" textAnchor="middle">مأكولات بحرية</text>
+                <text x="160" y="48" fontSize="8" fill="#BAE6FD" textAnchor="middle">حلال طاهرة</text>
               </svg>
+
+              <div className="grid grid-cols-1 gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => triggerMistake('food_halal_kosher_rules', 'طعام أهل الكتاب (الذبح الكتابي) والأسماك حلال طاهر بنص القرآن الكريم، ولا يحرم إلا ما ذُبح لغير الله أو الخنزير.')}
+                  className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-rose-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ❌ الامتناع عن جميع اللحوم والأسماك ظناً أنها محرمة
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAction('تناول الذبح الكتابي والمأكولات البحرية بطمأنينة', ['food_halal_kosher_rules', 'halal_earnings_ethics'])}
+                  className="p-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ✓ تناول الذبح الكتابي والمأكولات البحرية بطمأنينة
+                </button>
+              </div>
             </div>
           )}
 
           {/* SCENARIO 19: Dining Near Alcohol */}
           {numericId === 19 && (
-            <div className="p-3.5 rounded-2xl bg-amber-500/20 border border-amber-400/30 text-center max-w-xs">
-              <Utensils className="w-6 h-6 text-amber-300 mx-auto mb-1" />
-              <span className="text-xs font-black text-amber-300 block">طاولة عشاء العمل المستقلة</span>
-              <span className="text-[10px] text-amber-100">الجلوس على طاولة نقية خالية من المنكرات وطلب العصير الحلال</span>
+            <div className="flex flex-col items-center justify-center gap-3 w-full max-w-sm">
+              <div className="p-3 rounded-2xl bg-amber-500/20 border border-amber-400/30 text-center w-full">
+                <Utensils className="w-5 h-5 text-amber-300 mx-auto mb-1" />
+                <span className="text-xs font-black text-amber-300 block">طاولة عشاء العمل المستقلة</span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => triggerMistake('social_dining_alcohol_etiquettes', 'نهى النبي ﷺ عن الجلوس على مائدة يُدار عليها الخمر؛ والمشروع الجلوس على طاولة مستقلة خالية من المحرمات.')}
+                  className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-rose-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ❌ الجلوس على نفس الطاولة التي يُسكَب عليها الخمر
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAction('الجلوس على طاولة مستقلة خالية من المحرمات وطلب الحلال', ['social_dining_alcohol_etiquettes', 'interfaith_courtesy_ethics'])}
+                  className="p-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ✓ الجلوس على طاولة مستقلة خالية من المحرمات وطلب الحلال
+                </button>
+              </div>
             </div>
           )}
 
           {/* SCENARIO 20: Cashier Lottery Job */}
           {numericId === 20 && (
-            <div className="p-3.5 rounded-2xl bg-sky-500/20 border border-sky-400/30 text-center max-w-xs">
-              <Briefcase className="w-6 h-6 text-sky-300 mx-auto mb-1" />
-              <span className="text-xs font-black text-sky-300 block">طلب النقل لقسم الأغذية الحلال</span>
-              <span className="text-[10px] text-sky-100">«ومن يتق الله يجعل له مخرجاً» • التعفف عن بيع القمار مع طلب بديل</span>
+            <div className="flex flex-col items-center justify-center gap-3 w-full max-w-sm">
+              <div className="p-3 rounded-2xl bg-sky-500/20 border border-sky-400/30 text-center w-full">
+                <Briefcase className="w-5 h-5 text-sky-300 mx-auto mb-1" />
+                <span className="text-xs font-black text-sky-300 block">طلب النقل لقسم الأغذية الحلال</span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => triggerMistake('employment_lottery_gambling_rules', 'لا يجوز المباشرة في بيع تذاكر القمار واليانصيب؛ والمشروع طلب التبديل إلى قسم الأغذية الحلال.')}
+                  className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-rose-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ❌ بيع تذاكر القمار واليانصيب مباشرة للزبائن
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAction('طلب النقل لقسم البضائع الحلال والتعفف عن القمار', ['employment_lottery_gambling_rules', 'halal_earnings_ethics'])}
+                  className="p-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ✓ طلب النقل لقسم البضائع الحلال والتعفف عن القمار
+                </button>
+              </div>
             </div>
           )}
 
           {/* SCENARIO 21: Family Dinner Pork */}
           {numericId === 21 && (
-            <div className="p-3.5 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 text-center max-w-xs">
-              <Users className="w-6 h-6 text-emerald-400 mx-auto mb-1" />
-              <span className="text-xs font-black text-emerald-300 block">صلة الرحم مع العائلة</span>
-              <span className="text-[10px] text-emerald-100">تلبية الدعوة وتناول الأسماك والسلطات والاعتذار بلطف عن المحرم</span>
+            <div className="flex flex-col items-center justify-center gap-3 w-full max-w-sm">
+              <div className="p-3 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 text-center w-full">
+                <Users className="w-5 h-5 text-emerald-400 mx-auto mb-1" />
+                <span className="text-xs font-black text-emerald-300 block">صلة الرحم مع العائلة</span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => triggerMistake('family_pork_dinners_kinship', 'صلة الرحم واجبة مع الأهل؛ ويجوز تلبية الدعوة والأكل من الطعام المباح كالأرز والسمك مع الاعتذار بلطف عن المحرم.')}
+                  className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-rose-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ❌ قطيعة الأهل ومقاطعة العشاء العائلي بصدام وجفاء
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAction('تلبية العشاء العائلي وأكل الطعام المباح مع الاعتذار بلطف', ['family_pork_dinners_kinship', 'interfaith_courtesy_ethics'])}
+                  className="p-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ✓ تلبية العشاء العائلي وأكل الطعام المباح مع الاعتذار بلطف
+                </button>
+              </div>
             </div>
           )}
 
           {/* SCENARIO 22: Condolences for Non-Muslim Relative */}
           {numericId === 22 && (
-            <div className="p-3.5 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 text-center max-w-xs">
-              <Heart className="w-6 h-6 text-rose-400 mx-auto mb-1" />
-              <span className="text-xs font-black text-emerald-300 block">واجب العزاء والمواساة الإنسانية</span>
-              <span className="text-[10px] text-emerald-100">تقديم الكلمات الطيبة ومواساة الأهل صلةً للرحم وبرّاً بهم</span>
+            <div className="flex flex-col items-center justify-center gap-3 w-full max-w-sm">
+              <div className="p-3 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 text-center w-full">
+                <Heart className="w-5 h-5 text-rose-400 mx-auto mb-1" />
+                <span className="text-xs font-black text-emerald-300 block">واجب العزاء والمواساة الإنسانية</span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => triggerMistake('interfaith_condolences_ethics', 'تعزية الأقارب غير المسلمين ومواساتهم بالكلام الطيب والتعاطف الإنساني من البر والإحسان المأمور به.')}
+                  className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-rose-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ❌ الامتناع عن تعزية ومواساة الأقارب غير المسلمين
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAction('تقديم كلمات العزاء والمواساة الإنسانية بالبر والإحسان', ['interfaith_condolences_ethics', 'interfaith_courtesy_ethics'])}
+                  className="p-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ✓ تقديم كلمات العزاء والمواساة الإنسانية بالبر والإحسان
+                </button>
+              </div>
             </div>
           )}
 
@@ -627,59 +1090,135 @@ export const MasterKineticScenarioCanvas: React.FC<TactileEngineProps> = ({
 
           {/* SCENARIO 24: Mockery from Former Peers */}
           {numericId === 24 && (
-            <div className="p-3.5 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 text-center max-w-xs">
-              <ShieldCheck className="w-6 h-6 text-emerald-300 mx-auto mb-1" />
-              <span className="text-xs font-black text-emerald-200 block">الحلم الوقور والإعراض</span>
-              <span className="text-[10px] text-emerald-100">«وإذا خاطبهم الجاهلون قالوا سلاماً» • الثبات بالسكينة</span>
+            <div className="flex flex-col items-center justify-center gap-3 w-full max-w-sm">
+              <div className="p-3 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 text-center w-full">
+                <ShieldCheck className="w-5 h-5 text-emerald-300 mx-auto mb-1" />
+                <span className="text-xs font-black text-emerald-200 block">الحلم الوقور والإعراض</span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => triggerMistake('social_mockery_patience', 'أمر الله بالإعراض عن الجاهلين والرد بالسلام والوقار والحلم دون الدخول في مشاحنات كلامية حادة.')}
+                  className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-rose-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ❌ الدخول في مشادات كلامية حادة وتبادل الإهانات
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAction('الرد بالسلام والوقار والحلم والإعراض عن الاستفزاز', ['social_mockery_patience', 'interfaith_courtesy_ethics'])}
+                  className="p-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ✓ الرد بالسلام والوقار والحلم والإعراض عن الاستفزاز
+                </button>
+              </div>
             </div>
           )}
 
           {/* SCENARIO 25: Overnight at In-Laws */}
           {numericId === 25 && (
-            <div className="p-3.5 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 text-center max-w-xs">
-              <Home className="w-6 h-6 text-emerald-400 mx-auto mb-1" />
-              <span className="text-xs font-black text-emerald-300 block">المبيت عند الأصهار بإحسان</span>
-              <span className="text-[10px] text-emerald-100">تقديم الهدايا وحفظ خصوصية الصلاة والوضوء بالسكينة</span>
+            <div className="flex flex-col items-center justify-center gap-3 w-full max-w-sm">
+              <div className="p-3 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 text-center w-full">
+                <Home className="w-5 h-5 text-emerald-400 mx-auto mb-1" />
+                <span className="text-xs font-black text-emerald-300 block">المبيت عند الأصهار بإحسان</span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => triggerMistake('inlaws_overnight_prayer_confidence', 'لا حياء في أداء فرائض الله؛ والمشروع أداء الصلاة بالسكينة في الغرفة المخصصة مع احترام العائلة تقديم الهدايا.')}
+                  className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-rose-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ❌ ترك الصلاة حياءً وخجلاً من عائلة الزوج/الزوجة
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAction('أداء الصلاة بسكينة في الغرفة مع المداراة والإحسان لأصهارك', ['inlaws_overnight_prayer_confidence', 'salah_focus_tranquility'])}
+                  className="p-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ✓ أداء الصلاة بسكينة في الغرفة مع المداراة والإحسان لأصهارك
+                </button>
+              </div>
             </div>
           )}
 
           {/* SCENARIO 26: Guilt Over Past Life */}
           {numericId === 26 && (
-            <div className="flex flex-col items-center justify-center gap-2">
+            <div className="flex flex-col items-center justify-center gap-3 w-full max-w-sm">
               <div
                 onClick={() => {
                   playPeaceChime();
                   setPadlockOpen(!padlockOpen);
                 }}
-                className="p-4 rounded-2xl bg-amber-500/20 border-2 border-amber-400/40 text-center cursor-pointer hover:bg-amber-500/30 transition-all shadow-lg"
+                className="p-3 rounded-2xl bg-amber-500/20 border-2 border-amber-400/40 text-center cursor-pointer hover:bg-amber-500/30 transition-all shadow-lg w-full"
               >
-                <span className="text-3xl block mb-1">{padlockOpen ? '🔓' : '🔒'}</span>
+                <span className="text-2xl block mb-1">{padlockOpen ? '🔓' : '🔒'}</span>
                 <span className="text-xs font-black text-amber-200 block">
-                  {padlockOpen ? 'انحلال قيد الماضي بنور المغفرة ✨' : 'قيد الماضي والذنوب (انقر للفك)'}
+                  {padlockOpen ? 'انحلال قيد الماضي بنور المغفرة ✨' : 'قيد الذنوب السابقة (انقر لفك القيد)'}
                 </span>
-                <span className="text-[10px] text-amber-100/80">«الإسلام يهدم ما كان قبله» • صفحتك بيضاء نقية</span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => triggerMistake('heart_repentance_islam_erases_past', '«الإسلام يهدم ما كان قبله»؛ دخولك في الإسلام يمحو جميع الذنوب والخطايا السابقة وتصبح صحيفتك نقية بيضاء.')}
+                  className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-rose-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ❌ القنوط والشعور بعقدة الذنب وتعذيب الذات على الماضي
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPadlockOpen(true);
+                    handleAction('فك قيد الذنوب واليقين الشامل بمغفرة الله ومحو ما سبق', ['heart_repentance_islam_erases_past', 'faith_certainty_peace']);
+                  }}
+                  className="p-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ✓ فك قيد الذنوب واليقين الشامل بمغفرة الله ومحو ما سبق
+                </button>
               </div>
             </div>
           )}
 
           {/* SCENARIO 27: Conflicting Online Fatwas */}
           {numericId === 27 && (
-            <div className="p-3.5 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 text-center max-w-xs">
-              <BookOpen className="w-6 h-6 text-amber-300 mx-auto mb-1" />
-              <span className="text-xs font-black text-emerald-300 block">المتون الفقهية المعتمدة</span>
-              <span className="text-[10px] text-emerald-100">«يسروا ولا تعسروا» • ترك جدالات الإنترنت والأخذ بالأيسر</span>
+            <div className="flex flex-col items-center justify-center gap-3 w-full">
+              <div className="p-3.5 rounded-2xl bg-[#0F172A] border border-amber-500/30 w-full max-w-sm text-center">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <BookOpen className="w-5 h-5 text-amber-300" />
+                  <span className="text-xs font-black text-amber-200">تقييم الفتاوى الرقمية والمصادر المعتمدة</span>
+                </div>
+                <div className="space-y-2 text-start">
+                  <button
+                    type="button"
+                    onClick={() => triggerMistake('source_evaluation_credibility', 'تتبع المجموعات والفتاوى المجهولة التي تشيع التشدد والتجريح يورث الحيرة، والواجب الأخذ برأي الدور الإفتائية المعتمدة ومهيع التيسير.')}
+                    className="w-full p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-rose-200 text-xs font-medium cursor-pointer transition-all flex items-center justify-between"
+                  >
+                    <span>❌ فتوى مجهولة في منشور عابر ينشر التشديد والتنطع</span>
+                    <span className="text-[10px] text-rose-300 font-bold px-2 py-0.5 rounded bg-rose-950/60 shrink-0">غير معتمد</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAction('الأخذ برأي المؤسسات الإفتائية المعتمدة والتيسير النبوي', ['source_evaluation_credibility', 'fiqh_diversity_tolerance'])}
+                    className="w-full p-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold cursor-pointer transition-all flex items-center justify-between"
+                  >
+                    <span>✓ فتوى مؤسسة رسمية معتمدة (مثل دور الإفتاء) بمهيع التيسير</span>
+                    <span className="text-[10px] text-emerald-300 font-bold px-2 py-0.5 rounded bg-emerald-950/60 shrink-0">مصدر موثوق</span>
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
           {/* SCENARIO 28: Work Prayer Breaks */}
           {numericId === 28 && (
-            <div className="flex flex-col items-center justify-center gap-2">
+            <div className="flex flex-col items-center justify-center gap-3 w-full max-w-sm">
               <div
                 onClick={() => {
                   playPeaceChime();
                   setPrayerBreakBooked(!prayerBreakBooked);
                 }}
-                className={`p-3.5 rounded-2xl border text-center max-w-xs cursor-pointer transition-all ${
+                className={`p-3 rounded-2xl border text-center w-full cursor-pointer transition-all ${
                   prayerBreakBooked
                     ? 'bg-emerald-500/25 border-emerald-400 text-emerald-200 shadow-lg'
                     : 'bg-sky-500/20 border-sky-400/30 text-sky-200'
@@ -689,47 +1228,116 @@ export const MasterKineticScenarioCanvas: React.FC<TactileEngineProps> = ({
                 <span className="text-xs font-black block">
                   {prayerBreakBooked ? 'تم حجز استراحة الصلاة في التقويم (12:30 PM) ✓' : 'حجز 10 دقائق لصلاة الظهر في العمل'}
                 </span>
-                <span className="text-[10px] text-sky-100 block mt-0.5">«أرحنا بها يا بلال» • تنظيم المواعيد بيقين</span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => triggerMistake('workplace_prayer_break_management', 'تنسيق وقت الصلاة في العمل عبر حجز استراحة قصيرة في التقويم يضمن الفريضة دون إخلال بمهام الوظيفية.')}
+                  className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-rose-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ❌ التفريط في الصلاة وتأخيرها أو تركها في بيئة العمل
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPrayerBreakBooked(true);
+                    handleAction('حجز استراحة صلاة قصيرة في تقويم العمل بانتظام', ['workplace_prayer_break_management', 'salah_focus_tranquility']);
+                  }}
+                  className="p-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ✓ حجز استراحة صلاة قصيرة في تقويم العمل بانتظام
+                </button>
               </div>
             </div>
           )}
 
           {/* SCENARIO 29: Recitation Concession (Non-Arabic) */}
           {numericId === 29 && (
-            <div className="p-3.5 rounded-2xl bg-amber-500/20 border border-amber-400/30 text-center max-w-xs">
-              <span className="text-xs font-black text-amber-200 block">الذكر البديل حتى إتقان الفاتحة:</span>
-              <span className="text-[11px] text-emerald-300 font-bold block mt-1">
-                (سبحان الله، والحمد لله، ولا إله إلا الله، والله أكبر)
-              </span>
-              <span className="text-[9px] text-amber-100/70">تجزئك صلاتك تماماً وتتعلم بالتدريج</span>
+            <div className="flex flex-col items-center justify-center gap-3 w-full max-w-sm">
+              <div className="p-3 rounded-2xl bg-amber-500/20 border border-amber-400/30 text-center w-full">
+                <span className="text-xs font-black text-amber-200 block">الذكر البديل حتى إتقان الفاتحة:</span>
+                <span className="text-xs text-emerald-300 font-bold block mt-1">
+                  (سبحان الله، والحمد لله، ولا إله إلا الله، والله أكبر)
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => triggerMistake('non_arabic_recitation_concession', 'من عجز عن قراءة الفاتحة في أدايته الأولى يجزئه الذكر (التسبيح والتحميد والتكبير) وتصح صلاته بالكامل مع الاستمرار بالتعلم.')}
+                  className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-rose-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ❌ التوقف عن الصلاة بالكامل حتى إتقان اللغة العربية والقرآن
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAction('قراءة التسبيح والذكر البديل أثناء أداء الصلاة مع التعلم التدريجي', ['non_arabic_recitation_concession', 'salah_focus_tranquility'])}
+                  className="p-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ✓ قراءة التسبيح والذكر البديل أثناء أداء الصلاة مع التعلم التدريجي
+                </button>
+              </div>
             </div>
           )}
 
           {/* SCENARIO 30: Zakat al-Fitr (Traditional Sa'a Bowl + Digital Scale) */}
           {numericId === 30 && (
-            <div className="flex flex-col items-center justify-center gap-3 w-full">
-              <div className="flex items-center justify-center gap-4">
-                <svg viewBox="0 0 140 100" className="w-32 h-24">
-                  <path d="M 20 40 Q 70 20 120 40 L 105 85 Q 70 95 35 85 Z" fill="#854D0E" stroke="#A16207" strokeWidth="2" />
-                  <ellipse cx="70" cy="40" rx="45" ry="15" fill="#FEF08A" stroke="#FDE047" strokeWidth="1.5" />
-                  <circle cx="55" cy="35" r="2.5" fill="#FFFFFF" />
-                  <circle cx="70" cy="30" r="2.5" fill="#FFFFFF" />
-                  <circle cx="85" cy="36" r="2.5" fill="#FFFFFF" />
-                  <text x="70" y="70" fontSize="8" fill="#FEF9C3" fontWeight="bold" textAnchor="middle">صاع نبوي (أرز)</text>
+            <div className="flex flex-col items-center justify-center gap-3 w-full max-w-sm">
+              <div className="flex items-center justify-center gap-3 w-full">
+                <svg viewBox="0 0 120 70" className="w-28 h-16">
+                  <path d="M 20 25 Q 60 10 100 25 L 90 60 Q 60 68 30 60 Z" fill="#854D0E" stroke="#A16207" strokeWidth="2" />
+                  <ellipse cx="60" cy="25" rx="40" ry="12" fill="#FEF08A" stroke="#FDE047" strokeWidth="1.5" />
+                  <text x="60" y="50" fontSize="8" fill="#FEF9C3" fontWeight="bold" textAnchor="middle">صاع نبوي (أرز)</text>
                 </svg>
 
-                <div className="p-3 rounded-2xl bg-emerald-500/25 border-2 border-emerald-400 text-center shadow-lg">
-                  <Scale className="w-5 h-5 text-emerald-300 mx-auto mb-0.5" />
-                  <span className="text-xl font-black text-emerald-200">{saCount} كجم</span>
-                  <span className="text-[9px] text-emerald-100 block font-bold">صاع نبوي من طعام</span>
+                <div className="p-2.5 rounded-2xl bg-emerald-500/25 border-2 border-emerald-400 text-center shadow-lg">
+                  <Scale className="w-4 h-4 text-emerald-300 mx-auto mb-0.5" />
+                  <span className="text-lg font-black text-emerald-200">{saCount} كجم</span>
+                  <span className="text-[9px] text-emerald-100 block font-bold">طعام المستحقين</span>
                 </div>
               </div>
-              <span className="text-[11px] text-amber-300 font-bold">
-                طهرة للصائم وطعمة للمساكين • تخرج قبل صلاة العيد
-              </span>
+
+              <div className="grid grid-cols-1 gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => triggerMistake('zakat_fitr_timing_amount', 'تخرج زكاة الفطر قُبيل صلاة العيد (صاع من طعام ~2.5 كجم) طهرة للصائم وطعمة للمساكين، ولا تُؤخر عن صلاة العيد إلا بعذر.')}
+                  className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-rose-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ❌ تأخير إخراج زكاة الفطر إلى ما بعد انتهاء صلاة العيد
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAction('إخراج الصاع النبوي من الطعام للمساكين قبل صلاة العيد', ['zakat_fitr_timing_amount', 'zakat_purification_ethics'])}
+                  className="p-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-xs font-bold text-start transition-all cursor-pointer"
+                >
+                  ✓ إخراج الصاع النبوي من الطعام للمساكين قبل صلاة العيد
+                </button>
+              </div>
             </div>
           )}
         </div>
+
+        {/* MISTAKE FEEDBACK ALERT BOX */}
+        {mistakeFeedback && (
+          <div className="mb-4 p-3.5 rounded-2xl bg-rose-950/80 border-2 border-rose-400 text-rose-100 text-xs sm:text-sm font-medium space-y-2 animate-fade-in relative z-10 shadow-xl">
+            <div className="flex items-center justify-between font-bold text-rose-300">
+              <span className="flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                <span>توجيه تصحيحي للموقف</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setMistakeFeedback(null)}
+                className="text-[11px] text-rose-200 bg-rose-900/60 hover:bg-rose-900 px-2.5 py-1 rounded-lg border border-rose-400/40 cursor-pointer transition-all flex items-center gap-1"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>إعادة المحاولة والتصحيح</span>
+              </button>
+            </div>
+            <p className="leading-relaxed text-rose-100">{mistakeFeedback}</p>
+          </div>
+        )}
 
         {/* CLICKABLE ACTION BUTTONS DIRECTLY UNDERNEATH */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 relative z-10">

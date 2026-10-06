@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Heart,
   Droplet,
@@ -23,9 +23,20 @@ export const InteractiveTranquilityStation: React.FC<InteractiveTranquilityStati
   const [activeTab, setActiveTab] = useState<'heartbeat' | 'wudu_gauge' | 'offload'>('heartbeat');
 
   // 1. Heartbeat Pulse at Mosque Gate state
-  const [heartBpm, setHeartBpm] = useState<number>(125);
+  const [heartBpm, setHeartBpm] = useState<number>(150);
   const [isCalming, setIsCalming] = useState<boolean>(false);
   const [pulseCount, setPulseCount] = useState<number>(0);
+  const heartbeatTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Clean up interval on unmount
+  useEffect(() => {
+    return () => {
+      if (heartbeatTimerRef.current) {
+        clearInterval(heartbeatTimerRef.current);
+        heartbeatTimerRef.current = null;
+      }
+    };
+  }, []);
 
   // 2. Sunnah Wudu Water Gauge state
   const [wuduMl, setWuduMl] = useState<number>(0);
@@ -41,24 +52,39 @@ export const InteractiveTranquilityStation: React.FC<InteractiveTranquilityStati
     playSoftTap();
     setIsCalming(true);
 
-    const step = setInterval(() => {
+    if (heartbeatTimerRef.current) {
+      clearInterval(heartbeatTimerRef.current);
+    }
+
+    heartbeatTimerRef.current = setInterval(() => {
       setHeartBpm((prev) => {
-        if (prev <= 74) {
-          clearInterval(step);
-          setIsCalming(false);
-          playPeaceChime();
-          onAdjustScore(15, lang === 'ar' ? '+15 سكينة (خفض نبض القلب)' : '+15 Serenity (Heart Calmed)', 'peace');
+        const nextBpm = prev - 6;
+        if (nextBpm <= 72) {
+          if (heartbeatTimerRef.current) {
+            clearInterval(heartbeatTimerRef.current);
+            heartbeatTimerRef.current = null;
+          }
+          setTimeout(() => {
+            setIsCalming(false);
+            playPeaceChime();
+            onAdjustScore(15, lang === 'ar' ? '+15 سكينة (خفض نبض القلب)' : '+15 Serenity (Heart Calmed)', 'peace');
+          }, 0);
           return 72;
         }
-        return prev - 6;
+        return nextBpm;
       });
       setPulseCount((c) => c + 1);
     }, 280);
   };
 
   const handleResetHeartbeat = () => {
+    if (heartbeatTimerRef.current) {
+      clearInterval(heartbeatTimerRef.current);
+      heartbeatTimerRef.current = null;
+    }
     playSoftTap();
-    setHeartBpm(125);
+    setIsCalming(false);
+    setHeartBpm(150);
     setPulseCount(0);
   };
 
@@ -112,14 +138,13 @@ export const InteractiveTranquilityStation: React.FC<InteractiveTranquilityStati
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-bold text-[#D4A373] uppercase tracking-wider mb-1">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>{lang === 'ar' ? 'واحة التطبيقات الحركية التفاعلية' : 'Interactive Serenity Physical Station'}</span>
-            </div>
+          <div className="flex items-center gap-3 flex-wrap">
             <h2 className="text-2xl sm:text-3xl font-extrabold text-[#2C483F]">
-              {lang === 'ar' ? 'المختبر الحركي لخفض التوتر وتثبيت السكينة' : 'Physical 2D Serenity Laboratory'}
+              {lang === 'ar' ? 'واحة تنظيم المشاعر' : 'Emotional Regulation Oasis'}
             </h2>
+            <span className="px-3 py-1 rounded-full bg-amber-100/90 text-[#2C483F] text-xs font-bold border border-amber-300/70 shadow-xs">
+              {lang === 'ar' ? 'هل أنت متوتر؟' : 'Feeling stressed?'}
+            </span>
           </div>
 
           {/* Interactive Navigation Tabs for Physical Exercises */}
@@ -155,22 +180,6 @@ export const InteractiveTranquilityStation: React.FC<InteractiveTranquilityStati
               <Droplet className="w-3.5 h-3.5 text-cyan-400" />
               <span>{lang === 'ar' ? 'مقياس المُدّ والوضوء' : 'Mudd & Wudu Gauge'}</span>
             </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                playSoftTap();
-                setActiveTab('offload');
-              }}
-              className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                activeTab === 'offload'
-                  ? 'bg-[#2C483F] text-white shadow-soft'
-                  : 'text-[#2C483F]/70 hover:text-[#2C483F]'
-              }`}
-            >
-              <Feather className="w-3.5 h-3.5 text-emerald-400" />
-              <span>{lang === 'ar' ? 'تفريغ الخواطر لله' : 'Thought Offload'}</span>
-            </button>
           </div>
         </div>
 
@@ -178,60 +187,103 @@ export const InteractiveTranquilityStation: React.FC<InteractiveTranquilityStati
         {activeTab === 'heartbeat' && (
           <div className="bg-white/95 backdrop-blur-md rounded-3xl border border-[#D4A373]/30 p-6 sm:p-8 shadow-soft animate-fade-in">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
-              <div className="md:col-span-6 flex flex-col items-center justify-center p-6 bg-gradient-to-b from-[#1E293B] to-[#0F172A] rounded-3xl border-2 border-slate-700 text-white relative overflow-hidden">
-                {/* Radial Pulse Waves */}
-                <div
-                  className="absolute inset-0 bg-rose-500/10 rounded-full animate-ping pointer-events-none"
-                  style={{ animationDuration: `${60 / heartBpm}s` }}
-                />
+              <div className="md:col-span-6 flex flex-col items-center justify-center p-8 bg-gradient-to-b from-[#1E293B] to-[#0F172A] rounded-3xl border-2 border-slate-700 text-white relative overflow-hidden min-h-[360px]">
+                {/* Calculated gradual color interpolation (Red to Green via HSL) */}
+                {(() => {
+                  const bpmProgress = Math.max(0, Math.min(1, (150 - heartBpm) / (150 - 60)));
+                  const heartHue = bpmProgress * 120; // 0 is red, 120 is green
+                  const heartColor = `hsl(${heartHue}, 100%, 50%)`;
+                  const heartBg = `hsla(${heartHue}, 90%, 15%, 0.7)`;
+                  const heartBorder = `3px solid hsl(${heartHue}, 100%, 45%)`;
+                  const heartGlow = `0 0 40px hsla(${heartHue}, 100%, 50%, 0.4)`;
 
-                <div className="relative z-10 flex flex-col items-center">
-                  <div
-                    className="w-24 h-24 rounded-full bg-rose-950/80 border-4 border-rose-500 flex items-center justify-center shadow-lg transition-transform duration-300"
-                    style={{
-                      transform: isCalming ? 'scale(1.15)' : 'scale(1)',
-                    }}
-                  >
-                    <Heart className="w-12 h-12 text-rose-400 animate-pulse" />
-                  </div>
+                  const handleHeartTap = () => {
+                    if (heartBpm <= 60) return;
+                    playSoftTap();
+                    setHeartBpm((prev) => {
+                      const next = prev - 10;
+                      if (next <= 60) {
+                        playPeaceChime();
+                        onAdjustScore(15, lang === 'ar' ? '+15 سكينة (خفض نبض القلب)' : '+15 Serenity (Heart Calmed)', 'peace');
+                        return 60;
+                      }
+                      return next;
+                    });
+                  };
 
-                  <div className="mt-4 text-center">
-                    <span className="text-3xl sm:text-4xl font-black font-mono text-rose-300">
-                      {heartBpm} <span className="text-sm font-normal text-stone-400">BPM</span>
-                    </span>
-                    <span className="text-xs block text-stone-300 font-bold mt-1">
-                      {heartBpm > 100
-                        ? lang === 'ar' ? '⚠️ نبض متسارع عند عتبة المسجد (رهبة البداية)' : '⚠️ Accelerated Pulse (Mosque Threshold Hesitation)'
-                        : lang === 'ar' ? '✨ نبض مستقر وسكينة تامة (72 نبضة)' : '✨ Steady Calm & Inner Peace (72 BPM)'}
-                    </span>
-                  </div>
-                </div>
+                  return (
+                    <>
+                      {/* Radial Pulse Waves with dynamic color */}
+                      <div
+                        className="absolute inset-0 rounded-full animate-ping pointer-events-none opacity-40"
+                        style={{
+                          animationDuration: `${120 / heartBpm}s`,
+                          backgroundColor: `hsla(${heartHue}, 100%, 50%, 0.1)`,
+                        }}
+                      />
 
-                <div className="mt-6 flex items-center gap-3 relative z-10">
-                  <button
-                    type="button"
-                    disabled={isCalming || heartBpm <= 72}
-                    onClick={handleCalmHeartbeat}
-                    className={`px-5 py-2.5 rounded-2xl font-bold text-xs shadow-soft transition-all ${
-                      heartBpm <= 72
-                        ? 'bg-emerald-600 text-white cursor-default'
-                        : 'bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white hover:scale-105 active:scale-95'
-                    }`}
-                  >
-                    {heartBpm <= 72
-                      ? lang === 'ar' ? 'تمت السكينة واستقرار النبض ✅' : 'Heart Rate Stabilized ✅'
-                      : lang === 'ar' ? 'اضغط لتهدئة النبض وخفض التوتر 🩺' : 'Tap to Calm Heartbeat 🩺'}
-                  </button>
+                      <div className="relative z-10 flex flex-col items-center justify-center w-full">
+                        {/* Tap Instructions */}
+                        <span className="text-xs font-bold text-rose-300 mb-4 animate-bounce tracking-wide">
+                          {lang === 'ar' ? 'اضغط على القلب مباشرة لتخفيف التوتر 👇' : 'Tap the heart directly to release tension 👇'}
+                        </span>
 
-                  <button
-                    type="button"
-                    onClick={handleResetHeartbeat}
-                    className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-stone-300"
-                    title={lang === 'ar' ? 'إعادة المحاكاة' : 'Reset'}
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                  </button>
-                </div>
+                        {/* LARGE TACTILE HEART IN CENTER */}
+                        <div
+                          onClick={handleHeartTap}
+                          className="w-40 h-40 sm:w-44 sm:h-44 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 cursor-pointer hover:scale-105 active:scale-95 select-none"
+                          style={{
+                            background: heartBg,
+                            border: heartBorder,
+                            boxShadow: heartGlow,
+                          }}
+                        >
+                          <Heart
+                            className="w-20 h-20 sm:w-24 sm:h-24 transition-all duration-300 fill-current"
+                            style={{
+                              color: heartColor,
+                              transform: `scale(${1 + (heartBpm / 300)})`,
+                              animation: `pulse ${60 / heartBpm}s infinite alternate ease-in-out`,
+                            }}
+                          />
+                        </div>
+
+                        {/* Pulse Rate Display Below Heart */}
+                        <div className="mt-6 text-center space-y-1">
+                          <span className="text-5xl sm:text-6xl font-black font-mono tracking-tight transition-all duration-300 block" style={{ color: `hsl(${heartHue}, 100%, 75%)` }}>
+                            {heartBpm} <span className="text-lg font-bold text-stone-300">BPM</span>
+                          </span>
+                          <span className="text-xs block text-stone-300 font-extrabold max-w-xs leading-relaxed">
+                            {heartBpm > 130
+                              ? lang === 'ar' ? '⚠️ توتر عالي جداً ونبض متسارع (اضغط لتخفيف التوتر)' : '⚠️ Extremely high stress (Tap to soothe)'
+                              : heartBpm > 100
+                              ? lang === 'ar' ? '⚠️ نبض متسارع عند عتبة المسجد (رهبة البداية)' : '⚠️ Accelerated Pulse (Mosque Threshold Hesitation)'
+                              : heartBpm > 70
+                              ? lang === 'ar' ? '✨ بدأ التوتر بالتلاشي والهدوء يقترب' : '✨ Tension easing, tranquility near'
+                              : lang === 'ar' ? '✨ نبض مستقر وسكينة تامة (60 نبضة)' : '✨ Steady Calm & Inner Peace (60 BPM)'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Reset Control */}
+                      <div className="mt-6 flex items-center gap-3 relative z-10">
+                        {heartBpm <= 60 && (
+                          <span className="text-xs px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+                            {lang === 'ar' ? 'تمت السكينة واستقرار النبض ✅' : 'Heart Rate Stabilized ✅'}
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleResetHeartbeat}
+                          className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-stone-300 cursor-pointer transition-all border border-slate-700 hover:scale-105"
+                          title={lang === 'ar' ? 'إعادة المحاكاة' : 'Reset'}
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
 
               <div className="md:col-span-6 space-y-4 text-start">
@@ -264,7 +316,15 @@ export const InteractiveTranquilityStation: React.FC<InteractiveTranquilityStati
 
         {/* Tab 2: Active 2D Sunnah Wudu Water Gauge */}
         {activeTab === 'wudu_gauge' && (
-          <div className="bg-white/95 backdrop-blur-md rounded-3xl border border-[#D4A373]/30 p-6 sm:p-8 shadow-soft animate-fade-in">
+          <div className="bg-white/95 backdrop-blur-md rounded-3xl border border-[#D4A373]/30 p-6 sm:p-8 shadow-soft animate-fade-in space-y-4">
+            {/* Top Wudu Category Badge */}
+            <div className="flex items-center justify-between border-b border-[#D4A373]/20 pb-3">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-100/90 text-cyan-900 text-xs font-black border border-cyan-300 shadow-xs">
+                <Droplet className="w-3.5 h-3.5 text-cyan-600" />
+                <span>{lang === 'ar' ? 'وسواس الوضوء؟' : 'Wudu Doubts?'}</span>
+              </span>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
               <div className="md:col-span-6 flex flex-col items-center justify-center p-6 bg-gradient-to-b from-[#0F1E28] to-[#081218] rounded-3xl border-2 border-cyan-900 text-white relative overflow-hidden">
                 <div className="relative z-10 flex flex-col items-center">

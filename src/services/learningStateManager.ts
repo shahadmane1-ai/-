@@ -139,6 +139,7 @@ export function saveLearningState(state: UserLearningState): void {
   if (typeof window !== 'undefined' && window.localStorage) {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
+      window.dispatchEvent(new CustomEvent('rafic_learning_state_updated', { detail: sanitized }));
     } catch (e) {
       console.warn('[LearningStateManager] Failed to write to localStorage:', e);
     }

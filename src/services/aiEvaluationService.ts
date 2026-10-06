@@ -19,7 +19,7 @@ export interface EvaluationDecision {
   reinforcement_concept: string | null; // The exact concept to reinforce if failed (e.g., "أحكام سجود السهو"), or null if mastered.
 }
 
-export const AI_EVALUATION_MODEL = 'gemini-3.8-flash';
+export const AI_EVALUATION_MODEL = 'gemini-3.5-flash-lite';
 
 /**
  * Evaluates user's action/choice in an interactive scenario against its canonical learning objectives.

@@ -97,6 +97,19 @@
   }
 }
 
+@keyframes float-gentle {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.animate-float {
+  animation: float-gentle 3.2s ease-in-out infinite;
+}
+
 .animate-wave {
   transform-origin: 75% 75%;
   animation: wave-arm 2.4s ease-in-out infinite;

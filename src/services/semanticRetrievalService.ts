@@ -13,6 +13,7 @@ import {
 import { getProductionScenarios, getScenarioById } from './scenarioVault';
 import { generateEmbedding, EMBEDDING_DIMENSION, DEFAULT_EMBEDDING_MODEL, FALLBACK_EMBEDDING_MODEL } from './geminiService';
 import precomputedCacheData from '../data/scenarioEmbeddingsCache.json';
+import { SCENARIO_CONCEPT_PROFILES, evaluateCandidateWithArabicNlu } from './scenarioConceptProfiles';
 
 export { EMBEDDING_DIMENSION, DEFAULT_EMBEDDING_MODEL, FALLBACK_EMBEDDING_MODEL };
 
@@ -129,39 +130,36 @@ function normalizeArabicText(text: string): string {
  */
 export function rankScenariosLocally(query: string, topK: number = 3): ScenarioResult[] {
   const normQuery = normalizeArabicText(query);
-  const queryTokens = normQuery.split(/\s+/).filter((t) => t.length > 1);
+  if (!normQuery) return [];
+
   const productionScenarios = getProductionScenarios();
-
-  if (queryTokens.length === 0) return [];
-
   const scored: ScenarioResult[] = [];
 
   for (const scenario of productionScenarios) {
-    const titleNorm = normalizeArabicText(scenario.title_ar + ' ' + scenario.title_en);
-    const contextNorm = normalizeArabicText(scenario.contexts.join(' '));
-    const keywordsNorm = normalizeArabicText(scenario.keywords_ar.join(' ') + ' ' + scenario.keywords_en.join(' '));
-    const intentNorm = normalizeArabicText(scenario.unique_user_intent);
+    const profile = SCENARIO_CONCEPT_PROFILES.find((p) => p.scenario_id === scenario.id || p.numeric_id === scenario.numeric_id);
+    let finalScore = 0;
 
-    let matchWeight = 0;
+    if (profile) {
+      finalScore = evaluateCandidateWithArabicNlu(query, profile, 0);
+    } else {
+      const titleNorm = normalizeArabicText(scenario.title_ar + ' ' + scenario.title_en);
+      const intentNorm = normalizeArabicText(scenario.unique_user_intent);
+      const keywordsNorm = normalizeArabicText((scenario.keywords_ar || []).join(' '));
 
-    for (const token of queryTokens) {
-      if (titleNorm.includes(token)) matchWeight += 0.45;
-      if (intentNorm.includes(token)) matchWeight += 0.35;
-      if (keywordsNorm.includes(token)) matchWeight += 0.3;
-      if (contextNorm.includes(token)) matchWeight += 0.2;
+      let matchWeight = 0;
+      const tokens = normQuery.split(/\s+/).filter((t) => t.length > 1);
+      for (const token of tokens) {
+        if (titleNorm.includes(token)) matchWeight += 0.45;
+        if (intentNorm.includes(token)) matchWeight += 0.35;
+        if (keywordsNorm.includes(token)) matchWeight += 0.3;
+      }
+      finalScore = Math.min(0.96, matchWeight / Math.max(1, tokens.length * 0.7));
     }
 
-    // Specific phrase bonus
-    if (normQuery.length > 4 && (titleNorm.includes(normQuery) || intentNorm.includes(normQuery))) {
-      matchWeight += 0.4;
-    }
-
-    const normalizedScore = Math.min(0.96, matchWeight / Math.max(1, queryTokens.length * 0.7));
-
-    if (normalizedScore > 0.15) {
+    if (finalScore > 0.15) {
       scored.push({
         id: scenario.id,
-        score: Number(normalizedScore.toFixed(4)),
+        score: Number(finalScore.toFixed(4)),
         scenario,
       });
     }
@@ -261,36 +259,44 @@ export async function searchScenarios(
     return [];
   }
 
+  const productionScenarios = getProductionScenarios();
+  let queryVector: number[] | null = null;
+
   try {
-    const queryVector = await generateEmbedding(query);
-    if (queryVector && queryVector.length === EMBEDDING_DIMENSION) {
-      const scoredItems: ScenarioResult[] = [];
-
-      for (const entry of SCENARIO_EMBEDDINGS_CACHE) {
-        const scenario = getScenarioById(entry.scenario_id);
-        if (!scenario || !scenario.is_active || scenario.source_status !== 'SOURCE_VALIDATED') {
-          continue;
-        }
-
-        const score = calculateCosineSimilarity(queryVector, entry.embedding);
-        scoredItems.push({
-          id: scenario.id,
-          score: Number(score.toFixed(4)),
-          scenario,
-        });
-      }
-
-      scoredItems.sort((a, b) => b.score - a.score);
-      if (scoredItems.length > 0 && scoredItems[0].score > 0.2) {
-        return scoredItems.slice(0, topK);
-      }
-    }
-  } catch (embedError) {
-    console.warn('[semanticRetrievalService] Vector embedding attempt failed, using local semantic ranking fallback:', embedError);
+    queryVector = await generateEmbedding(query);
+  } catch {
+    // Local fallback
   }
 
-  // Graceful local semantic fallback against the 40 production scenarios
-  return rankScenariosLocally(query, topK);
+  const cacheMap = new Map<string, number[]>();
+  for (const entry of SCENARIO_EMBEDDINGS_CACHE) {
+    if (entry.scenario_id && entry.embedding) {
+      cacheMap.set(entry.scenario_id, entry.embedding);
+    }
+  }
+
+  const scoredItems: ScenarioResult[] = [];
+
+  for (const scenario of productionScenarios) {
+    const cachedVec = cacheMap.get(scenario.id);
+    const vecScore = (queryVector && cachedVec && queryVector.length === EMBEDDING_DIMENSION)
+      ? calculateCosineSimilarity(queryVector, cachedVec)
+      : 0;
+
+    const profile = SCENARIO_CONCEPT_PROFILES.find((p) => p.scenario_id === scenario.id || p.numeric_id === scenario.numeric_id);
+    const combinedScore = profile ? evaluateCandidateWithArabicNlu(query, profile, vecScore) : vecScore;
+
+    if (combinedScore > 0.15) {
+      scoredItems.push({
+        id: scenario.id,
+        score: Number(combinedScore.toFixed(4)),
+        scenario,
+      });
+    }
+  }
+
+  scoredItems.sort((a, b) => b.score - a.score);
+  return scoredItems.slice(0, topK);
 }
 
 /**
@@ -316,8 +322,7 @@ export async function retrieveTopScenarios(
   try {
     const queryVector = await generateQueryEmbedding(query, config);
     return searchScenariosByVector(queryVector, config);
-  } catch (error: any) {
-    console.warn('[semanticRetrievalService] Falling back to local semantic retrieval in retrieveTopScenarios:', error?.message || error);
+  } catch {
     const localRanked = rankScenariosLocally(query, topK);
     const highest = localRanked[0]?.score || 0;
 

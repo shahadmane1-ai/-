@@ -13,7 +13,7 @@ import {
   clearReinforcementNeed,
 } from './learningStateManager';
 
-export const EVALUATION_MODEL = 'gemini-3.8-flash';
+export const EVALUATION_MODEL = 'gemini-3.5-flash-lite';
 
 /**
  * Strict JSON schema for Gemini responseSchema enforcement during concept evaluation.

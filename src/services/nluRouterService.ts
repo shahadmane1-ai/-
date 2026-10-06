@@ -6,7 +6,7 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { NluRoutingOutput, ScoredScenarioMatch } from '../types/routingTypes';
 
-export const NLU_ROUTING_MODEL = 'gemini-3.8-flash';
+export const NLU_ROUTING_MODEL = 'gemini-3.5-flash-lite';
 
 /**
  * Strict JSON schema for Gemini responseSchema enforcement.

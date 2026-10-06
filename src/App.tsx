@@ -56,6 +56,9 @@ import {
   dailyTasks,
 } from './data/simulationData';
 import { playPeaceChime, playSoftTap } from './utils/audio';
+import { UmrahInteractiveSimModal } from './components/UmrahInteractiveSimModal';
+import { HajjInteractiveSimModal } from './components/HajjInteractiveSimModal';
+import { UmrahLauncherCard } from './components/UmrahLauncherCard';
 
 export default function App() {
   // Arabic-first default or from localStorage
@@ -194,6 +197,8 @@ export default function App() {
   const [liveAiTrace, setLiveAiTrace] = useState<AiPipelineTraceData | null>(null);
   const [isTraceModalOpen, setIsTraceModalOpen] = useState<boolean>(false);
   const [isMiniGameLabOpen, setIsMiniGameLabOpen] = useState<boolean>(false);
+  const [isUmrahSimOpen, setIsUmrahSimOpen] = useState<boolean>(false);
+  const [isHajjSimOpen, setIsHajjSimOpen] = useState<boolean>(false);
   const [miniGameLabTopic, setMiniGameLabTopic] = useState<string | undefined>(undefined);
   const [miniGameLabQuery, setMiniGameLabQuery] = useState<string | undefined>(undefined);
 
@@ -502,21 +507,34 @@ export default function App() {
         onOpenJudgeTour={() => setIsJudgeTourOpen(true)}
         onOpenGovernance={() => setIsGovernanceOpen(true)}
         onOpenMiniGameLab={() => handleOpenMiniGameLab()}
+        onOpenUmrah={() => setIsUmrahSimOpen(true)}
+        onOpenHajj={() => setIsHajjSimOpen(true)}
       />
 
       {/* Main Content Canvas */}
-      <main className="relative">
-        {/* Hero Section with Interactive Anas 3D buddy and Mood Check-in */}
+      <main className="relative space-y-6">
+        {/* 1. Hero Welcome Section & Large Conversational Rafeeq Lab Entry Panel */}
         <HeroCompanionSection
           score={score}
           onAdjustScore={handleAdjustScore}
           lang={lang}
           onOpenJourney={scrollToSimulation}
+          onOpenMiniGameLab={() => handleOpenMiniGameLab()}
           userProfile={userProfile}
         />
 
-        {/* 2.5D Simulation World: Interactive City Map & 7-Day Empowerment Stepper */}
-        <section id="city-simulation-stage" className="py-6">
+        {/* 2. Daily Guidance — Prophetic Guidance for Everyday Situations */}
+        <DailyEmotionalRadar
+          score={score}
+          onAdjustScore={handleAdjustScore}
+          lang={lang}
+          userProfile={userProfile}
+          personalization={personalization}
+          onOpenMiniGameLab={handleOpenMiniGameLab}
+        />
+
+        {/* 3. 2.5D Simulation World: Interactive City Map & 7-Day Empowerment Stepper */}
+        <section id="city-simulation-stage" className="py-2">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
             {/* Days 1-7 Progression Stepper (Requirement 6 & 7) */}
             <SevenDayJourneyStepper
@@ -540,22 +558,35 @@ export default function App() {
               lang={lang}
               userProfile={userProfile}
               onOpenProfile={() => setIsOnboardingOpen(true)}
-              onOpenHubExperience={(hubId) => setActiveHubExperienceId(hubId)}
+              onOpenHubExperience={(expOrLandmarkId) => {
+                const matchedExp = experiences.find((e) => e.experienceId === expOrLandmarkId);
+                if (matchedExp) {
+                  setPlayingExperience(matchedExp);
+                  return;
+                }
+                const isLandmark = CITY_LANDMARKS.some((lm) => lm.id === expOrLandmarkId);
+                if (isLandmark) {
+                  setActiveHubExperienceId(expOrLandmarkId as LandmarkId);
+                } else {
+                  handleOpenExperienceById(expOrLandmarkId);
+                }
+              }}
             />
           </div>
         </section>
 
-        {/* Daily Emotional Radar & Reassurance (Replaces free chat with verified guidance) */}
-        <DailyEmotionalRadar
-          score={score}
-          onAdjustScore={handleAdjustScore}
-          lang={lang}
-          userProfile={userProfile}
-          personalization={personalization}
-          onOpenMiniGameLab={handleOpenMiniGameLab}
-        />
+        {/* 4. Interactive Umrah & Hajj Rituals Section */}
+        <section className="py-2">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <UmrahLauncherCard
+              onOpenUmrah={() => setIsUmrahSimOpen(true)}
+              onOpenHajj={() => setIsHajjSimOpen(true)}
+              lang={lang}
+            />
+          </div>
+        </section>
 
-        {/* Live Interactive Tranquility Station (Mosque Gate Pulse, Sunnah Wudu Gauge, Thought Offloading) */}
+        {/* 5. Live Interactive Tranquility Station (Mosque Gate Pulse, Sunnah Wudu Gauge, Thought Offloading) */}
         <InteractiveTranquilityStation
           onAdjustScore={handleAdjustScore}
           lang={lang}
@@ -721,6 +752,26 @@ export default function App() {
         initialQuery={miniGameLabQuery}
         userProfile={personalization}
         onAdjustScore={handleAdjustScore}
+        onOpenUmrah={() => setIsUmrahSimOpen(true)}
+        onOpenHajj={() => setIsHajjSimOpen(true)}
+      />
+
+      {/* Interactive Umrah Rituals & Final Quiz Simulator Modal */}
+      <UmrahInteractiveSimModal
+        isOpen={isUmrahSimOpen}
+        onClose={() => setIsUmrahSimOpen(false)}
+        lang={lang}
+        onAdjustScore={handleAdjustScore}
+        userGender={userProfile.gender}
+      />
+
+      {/* Interactive Hajj & Tamattu' Rituals & Final Quiz Simulator Modal */}
+      <HajjInteractiveSimModal
+        isOpen={isHajjSimOpen}
+        onClose={() => setIsHajjSimOpen(false)}
+        lang={lang}
+        onAdjustScore={handleAdjustScore}
+        userGender={userProfile.gender}
       />
 
       {/* Zero-Dependency Mobile-Friendly Toast System */}

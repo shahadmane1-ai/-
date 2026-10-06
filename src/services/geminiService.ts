@@ -5,7 +5,9 @@
 
 export const DEFAULT_EMBEDDING_MODEL = 'gemini-embedding-2-preview';
 export const FALLBACK_EMBEDDING_MODEL = 'gemini-embedding-001';
+export const DEFAULT_LLM_MODEL = 'gemini-3.5-flash-lite';
 export const EMBEDDING_DIMENSION = 768;
+export const DEFAULT_TIMEOUT_MS = 25000; // Calibrated 25s timeout to avoid premature abortion
 
 /**
  * Resolves the Gemini API Key from environment variables.
@@ -22,11 +24,41 @@ export function getApiKey(): string {
 }
 
 /**
- * Robust timeout wrapper around native promises
+ * Robust fetch wrapper with AbortController and timeout
+ */
+export async function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeoutMs: number = DEFAULT_TIMEOUT_MS,
+  operationName: string = 'REST API operation'
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    return response;
+  } catch (err: any) {
+    clearTimeout(timer);
+    if (err.name === 'AbortError' || controller.signal.aborted) {
+      throw new Error(`Timeout Error: ${operationName} did not respond within ${timeoutMs / 1000}s`);
+    }
+    throw err;
+  }
+}
+
+/**
+ * Robust timeout wrapper around existing promises
  */
 export function withTimeout<T>(
   promise: Promise<T>,
-  timeoutMs: number = 6000,
+  timeoutMs: number = DEFAULT_TIMEOUT_MS,
   operationName: string = 'REST API operation'
 ): Promise<T> {
   let timer: any;
@@ -62,29 +94,38 @@ export async function generateEmbedding(text: string, _dimension?: number): Prom
     throw new Error('Text to embed cannot be empty.');
   }
 
+  const startTime = Date.now();
+
   // Strategy 1: Server proxy (bypasses browser CORS & sandbox issues)
   if (typeof window !== 'undefined') {
     try {
       console.log(`[geminiService] Requesting embedding via server proxy (/api/gemini/embed)...`);
-      const res = await withTimeout(
-        fetch('/api/gemini/embed', {
+      const res = await fetchWithTimeout(
+        '/api/gemini/embed',
+        {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: trimmed }),
-        }),
-        6000,
+        },
+        DEFAULT_TIMEOUT_MS,
         'Server proxy embed'
       );
+
+      const latencyMs = Date.now() - startTime;
 
       if (res.ok) {
         const data = await res.json();
         if (data.values && Array.isArray(data.values) && data.values.length > 0) {
-          console.log(`[geminiService] Embedding received via server proxy (${data.values.length} dims)`);
+          console.log(
+            `[geminiService] Success | Model: ${data.model || DEFAULT_EMBEDDING_MODEL} (via proxy) | HTTP: ${res.status} | Latency: ${latencyMs}ms | Status: SUCCESS | Dims: ${data.values.length}`
+          );
           return data.values;
         }
+      } else {
+        console.warn(`[geminiService] Server proxy returned HTTP ${res.status}, checking direct REST...`);
       }
-    } catch (proxyErr) {
-      console.warn('[geminiService] Server proxy embed failed, trying direct REST fetch...', proxyErr);
+    } catch (proxyErr: any) {
+      console.warn('[geminiService] Server proxy embed failed, trying direct REST fetch...', proxyErr?.message || proxyErr);
     }
   }
 
@@ -98,6 +139,7 @@ export async function generateEmbedding(text: string, _dimension?: number): Prom
   let lastErrorMsg = '';
 
   for (const model of candidateModels) {
+    const modelStartTime = Date.now();
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent?key=${apiKey}`;
       const body = {
@@ -109,20 +151,27 @@ export async function generateEmbedding(text: string, _dimension?: number): Prom
       };
 
       console.log(`[geminiService] Requesting direct REST embedding from ${model}...`);
-      const fetchPromise = fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
+      const response = await fetchWithTimeout(
+        url,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        },
+        DEFAULT_TIMEOUT_MS,
+        `${model} direct fetch`
+      );
 
-      const response = await withTimeout(fetchPromise, 6000, `${model} direct fetch`);
+      const latencyMs = Date.now() - modelStartTime;
 
       if (response.ok) {
         const data = await response.json();
         const values = data?.embedding?.values || data?.embeddings?.[0]?.values;
 
         if (values && Array.isArray(values) && values.length > 0) {
-          console.log(`[geminiService] Embedding received directly from ${model} (${values.length} dims)`);
+          console.log(
+            `[geminiService] Success | Model: ${model} | HTTP: ${response.status} | Latency: ${latencyMs}ms | Status: SUCCESS | Dims: ${values.length}`
+          );
           return values;
         }
       } else {
@@ -156,14 +205,16 @@ export interface GenerateContentParams {
  * 2. Tries direct Google REST fetch if key is present
  */
 export async function generateContentDirect(params: GenerateContentParams): Promise<string> {
-  const modelName = params.model || 'gemini-3.5-flash-lite';
+  const modelName = params.model || DEFAULT_LLM_MODEL;
+  const startTime = Date.now();
 
   // Strategy 1: Server proxy
   if (typeof window !== 'undefined') {
     try {
       console.log(`[geminiService] Requesting content generation via server proxy (/api/gemini/generate)...`);
-      const res = await withTimeout(
-        fetch('/api/gemini/generate', {
+      const res = await fetchWithTimeout(
+        '/api/gemini/generate',
+        {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -172,20 +223,26 @@ export async function generateContentDirect(params: GenerateContentParams): Prom
             model: modelName,
             responseMimeType: params.responseMimeType || 'application/json',
           }),
-        }),
-        10000,
+        },
+        DEFAULT_TIMEOUT_MS,
         'Server proxy generate'
       );
+
+      const latencyMs = Date.now() - startTime;
 
       if (res.ok) {
         const data = await res.json();
         if (typeof data.text === 'string' && data.text.length > 0) {
-          console.log(`[geminiService] Content generated via server proxy (${data.text.length} chars)`);
+          console.log(
+            `[geminiService] Success | Model: ${data.model || modelName} (via proxy) | HTTP: ${res.status} | Latency: ${latencyMs}ms | Status: SUCCESS | Length: ${data.text.length} chars`
+          );
           return data.text;
         }
+      } else {
+        console.warn(`[geminiService] Server proxy generate returned HTTP ${res.status}, trying direct REST...`);
       }
-    } catch (proxyErr) {
-      console.warn('[geminiService] Server proxy generate failed, trying direct REST fetch...', proxyErr);
+    } catch (proxyErr: any) {
+      console.warn('[geminiService] Server proxy generate failed, trying direct REST fetch...', proxyErr?.message || proxyErr);
     }
   }
 
@@ -199,6 +256,7 @@ export async function generateContentDirect(params: GenerateContentParams): Prom
   let lastErrorMsg = '';
 
   for (const currentModel of candidateModels) {
+    const modelStartTime = Date.now();
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${apiKey}`;
       const bodyPayload: any = {
@@ -216,19 +274,26 @@ export async function generateContentDirect(params: GenerateContentParams): Prom
       }
 
       console.log(`[geminiService] Sending direct REST request to ${currentModel}...`);
-      const fetchPromise = fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(bodyPayload),
-      });
+      const response = await fetchWithTimeout(
+        url,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(bodyPayload),
+        },
+        DEFAULT_TIMEOUT_MS,
+        `${currentModel} direct fetch`
+      );
 
-      const response = await withTimeout(fetchPromise, 10000, `${currentModel} direct fetch`);
+      const latencyMs = Date.now() - modelStartTime;
 
       if (response.ok) {
         const data = await response.json();
         const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
         if (typeof text === 'string' && text.length > 0) {
-          console.log(`[geminiService] Content successfully generated from ${currentModel} (${text.length} chars)`);
+          console.log(
+            `[geminiService] Success | Model: ${currentModel} | HTTP: ${response.status} | Latency: ${latencyMs}ms | Status: SUCCESS | Length: ${text.length} chars`
+          );
           return text;
         }
       } else {

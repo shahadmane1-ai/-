@@ -41,10 +41,46 @@ const ai = apiKey
     })
   : null;
 
+async function safeAiGenerateContent(params: {
+  contents: any;
+  systemInstruction?: string;
+  responseMimeType?: string;
+  temperature?: number;
+  primaryModel?: string;
+}): Promise<string | null> {
+  if (!ai) return null;
+  const models = Array.from(new Set([params.primaryModel || 'gemini-3.5-flash-lite', 'gemini-3.8-flash']));
+  for (const model of models) {
+    try {
+      const config: any = {
+        temperature: params.temperature ?? 0.2,
+      };
+      if (params.responseMimeType) {
+        config.responseMimeType = params.responseMimeType;
+      }
+      if (params.systemInstruction) {
+        config.systemInstruction = params.systemInstruction;
+      }
+      const response = await ai.models.generateContent({
+        model,
+        contents: params.contents,
+        config,
+      });
+      if (response && response.text) {
+        return response.text;
+      }
+    } catch {
+      // Quietly fall back to next candidate model
+    }
+  }
+  return null;
+}
+
 // =========================================================================
 // 0. GEMINI PROXY ENDPOINTS (Reliable Server-Side Relay)
 // =========================================================================
 app.post('/api/gemini/embed', async (req: Request, res: Response) => {
+  const startTime = Date.now();
   try {
     const { text, model = 'gemini-embedding-2-preview' } = req.body;
     if (!text || typeof text !== 'string') {
@@ -55,13 +91,15 @@ app.post('/api/gemini/embed', async (req: Request, res: Response) => {
       return res.status(500).json({ error: 'GEMINI_API_KEY is not configured on server' });
     }
 
-    const targetModel =
-      model === 'text-embedding-004' ? 'gemini-embedding-2-preview' : model;
-
-    const candidateModels = [targetModel, 'gemini-embedding-001'];
+    const candidateModels = Array.from(new Set([
+      model === 'text-embedding-004' ? 'gemini-embedding-2-preview' : model,
+      'gemini-embedding-2-preview',
+      'gemini-embedding-001',
+    ])).filter((m) => m === 'gemini-embedding-2-preview' || m === 'gemini-embedding-001');
     let lastError = '';
 
     for (const m of candidateModels) {
+      const modelStartTime = Date.now();
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:embedContent?key=${currentApiKey}`;
         const response = await fetch(url, {
@@ -74,17 +112,24 @@ app.post('/api/gemini/embed', async (req: Request, res: Response) => {
           }),
         });
 
+        const latencyMs = Date.now() - modelStartTime;
+
         if (response.ok) {
           const data = await response.json();
           const values = data?.embedding?.values || data?.embeddings?.[0]?.values;
           if (values && Array.isArray(values) && values.length > 0) {
-            return res.json({ values });
+            console.log(
+              `[server:gemini:embed] Success | Model: ${m} | HTTP: 200 | Latency: ${latencyMs}ms | Dims: ${values.length}`
+            );
+            return res.json({ values, model: m, latencyMs });
           }
         } else {
           lastError = await response.text();
+          console.warn(`[server:gemini:embed] Model ${m} returned HTTP ${response.status}: ${lastError}`);
         }
       } catch (err: any) {
         lastError = err?.message || 'Fetch failed';
+        console.warn(`[server:gemini:embed] Model ${m} fetch exception: ${lastError}`);
       }
     }
 
@@ -96,8 +141,9 @@ app.post('/api/gemini/embed', async (req: Request, res: Response) => {
 });
 
 app.post('/api/gemini/generate', async (req: Request, res: Response) => {
+  const startTime = Date.now();
   try {
-    const { prompt, systemInstruction, model = 'gemini-3.8-flash', responseMimeType = 'application/json' } = req.body;
+    const { prompt, systemInstruction, model = 'gemini-3.5-flash-lite', responseMimeType = 'application/json' } = req.body;
     if (!prompt || typeof prompt !== 'string') {
       return res.status(400).json({ error: 'Prompt string is required' });
     }
@@ -106,13 +152,11 @@ app.post('/api/gemini/generate', async (req: Request, res: Response) => {
       return res.status(500).json({ error: 'GEMINI_API_KEY is not configured on server' });
     }
 
-    const targetModel =
-      model === 'gemini-1.5-flash' || model === 'gemini-2.5-flash' ? 'gemini-3.5-flash-lite' : model;
-
-    const candidateModels = Array.from(new Set([targetModel, 'gemini-3.5-flash-lite', 'gemini-3.8-flash']));
+    const candidateModels = Array.from(new Set([model, 'gemini-3.5-flash-lite', 'gemini-3.8-flash']));
     let lastError = '';
 
     for (const currentModel of candidateModels) {
+      const modelStartTime = Date.now();
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${currentApiKey}`;
         const bodyPayload: any = {
@@ -132,15 +176,22 @@ app.post('/api/gemini/generate', async (req: Request, res: Response) => {
           body: JSON.stringify(bodyPayload),
         });
 
+        const latencyMs = Date.now() - modelStartTime;
+
         if (response.ok) {
           const data = await response.json();
           const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-          return res.json({ text });
+          console.log(
+            `[server:gemini:generate] Success | Model: ${currentModel} | HTTP: 200 | Latency: ${latencyMs}ms | Length: ${text.length} chars`
+          );
+          return res.json({ text, model: currentModel, latencyMs });
         } else {
           lastError = await response.text();
+          console.warn(`[server:gemini:generate] Model ${currentModel} returned HTTP ${response.status}: ${lastError}`);
         }
       } catch (err: any) {
         lastError = err?.message || 'Generate fetch failed';
+        console.warn(`[server:gemini:generate] Model ${currentModel} exception: ${lastError}`);
       }
     }
 
@@ -500,20 +551,20 @@ Requirements:
   "isAiGenerated": true
 }`;
 
-        const response = await ai.models.generateContent({
-          model: 'gemini-3.8-flash',
+        const textOutput = await safeAiGenerateContent({
+          primaryModel: 'gemini-3.8-flash',
           contents: gamePrompt,
-          config: {
-            responseMimeType: 'application/json',
-            temperature: 0.3,
-          },
+          responseMimeType: 'application/json',
+          temperature: 0.3,
         });
 
-        const parsed = JSON.parse(response.text || '{}');
-        if (parsed && parsed.titleAr && parsed.mechanic) {
-          parsed.id = parsed.id || `game-ai-${Date.now()}`;
-          parsed.isAiGenerated = true;
-          return res.json(parsed);
+        if (textOutput) {
+          const parsed = JSON.parse(textOutput || '{}');
+          if (parsed && parsed.titleAr && parsed.mechanic) {
+            parsed.id = parsed.id || `game-ai-${Date.now()}`;
+            parsed.isAiGenerated = true;
+            return res.json(parsed);
+          }
         }
       } catch (aiErr) {
         console.warn('Gemini mini-game generation failed, using local generator:', aiErr);
@@ -826,18 +877,15 @@ Output strictly valid JSON matching this schema:
         promptContent = `Recent conversation:\n${historyText}\n\nCurrent user query:\n"${query}"\n\nProvide pure JSON response according to the schema.`;
       }
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
+      const textOutput = await safeAiGenerateContent({
+        primaryModel: 'gemini-3.8-flash',
         contents: promptContent,
-        config: {
-          systemInstruction,
-          responseMimeType: 'application/json',
-          temperature: 0.2,
-        },
+        systemInstruction,
+        responseMimeType: 'application/json',
+        temperature: 0.2,
       });
 
-      const textOutput = response.text || '';
-      if (textOutput.trim()) {
+      if (textOutput && textOutput.trim()) {
         let cleaned = textOutput.trim();
         if (cleaned.startsWith('```')) {
           cleaned = cleaned.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
@@ -934,18 +982,15 @@ Output strictly valid JSON matching schema:
 }`;
 
     const prompt = `Classify user query intent into one of 30 scenarios:\n"${userQuery}"`;
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
+    const textOutput = await safeAiGenerateContent({
+      primaryModel: 'gemini-3.8-flash',
       contents: prompt,
-      config: {
-        systemInstruction,
-        responseMimeType: 'application/json',
-        temperature: 0.1,
-      },
+      systemInstruction,
+      responseMimeType: 'application/json',
+      temperature: 0.1,
     });
 
-    const textOutput = response.text || '';
-    if (textOutput.trim()) {
+    if (textOutput && textOutput.trim()) {
       let cleaned = textOutput.trim();
       if (cleaned.startsWith('```')) {
         cleaned = cleaned.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
@@ -1085,18 +1130,15 @@ Output format strictly valid JSON matching this schema:
 
         const prompt = `Evaluate emotional state: "${emotionId}" with context: "${customNote || emotionId}". User is ${isFemale ? 'female' : 'male'}. Return JSON.`;
 
-        const response = await ai.models.generateContent({
-          model: 'gemini-3.8-flash',
+        const textOutput = await safeAiGenerateContent({
+          primaryModel: 'gemini-3.8-flash',
           contents: prompt,
-          config: {
-            systemInstruction,
-            responseMimeType: 'application/json',
-            temperature: 0.3,
-          },
+          systemInstruction,
+          responseMimeType: 'application/json',
+          temperature: 0.3,
         });
 
-        const textOutput = response.text || '';
-        if (textOutput.trim()) {
+        if (textOutput && textOutput.trim()) {
           let cleaned = textOutput.trim();
           if (cleaned.startsWith('```')) {
             cleaned = cleaned.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');

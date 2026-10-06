@@ -1,186 +1,83 @@
 import React from 'react';
-import { Sparkles, Sun, Smile, Wind, Heart, Shield } from 'lucide-react';
+import { Sparkles, MessageSquare, ArrowRight, Compass } from 'lucide-react';
 import { AnasAvatar } from './AnasAvatar';
 import { Language, UserProfile } from '../types';
 import { getAnasSalutation, t } from '../utils/i18n';
-import { playPeaceChime, playStressReleaseTone, playSoftTap } from '../utils/audio';
+import { playSoftTap } from '../utils/audio';
 
 interface HeroCompanionSectionProps {
   score: number;
   onAdjustScore: (delta: number, label: string, type: 'peace' | 'stress') => void;
   lang: Language;
   onOpenJourney: () => void;
+  onOpenMiniGameLab?: (topic?: string, query?: string) => void;
   userProfile?: UserProfile;
 }
 
 export const HeroCompanionSection: React.FC<HeroCompanionSectionProps> = ({
   score,
-  onAdjustScore,
   lang,
   onOpenJourney,
+  onOpenMiniGameLab,
   userProfile,
 }) => {
-  const getBadgeText = (delta: number, type: 'peace' | 'stress') => {
-    const sign = delta > 0 ? `+${delta}` : `${delta}`;
-    const word = type === 'peace' ? t('common.peace', lang) : t('common.stress', lang);
-    return `${sign} ${word}`;
-  };
-
-  const moods = [
-    {
-      id: 'serene',
-      icon: Smile,
-      labelAr: 'مطمئن وراضٍ',
-      labelEn: 'Serene & Content',
-      labelFr: 'Serein & Comblé',
-      labelEs: 'Sereno y Satisfecho',
-      delta: 10,
-      type: 'peace' as const,
-      color: 'hover:border-[#88C947] hover:bg-[#88C947]/10',
-    },
-    {
-      id: 'reflective',
-      icon: Wind,
-      labelAr: 'متأمل وهادئ',
-      labelEn: 'Reflective & Calm',
-      labelFr: 'Méditatif & Apaisé',
-      labelEs: 'Reflexivo y en Calma',
-      delta: 5,
-      type: 'peace' as const,
-      color: 'hover:border-[#D4A373] hover:bg-[#D4A373]/10',
-    },
-    {
-      id: 'anxious',
-      icon: Shield,
-      labelAr: 'مشوش أو قلق',
-      labelEn: 'Anxious / Overwhelmed',
-      labelFr: 'Inquiet / Débordé',
-      labelEs: 'Inquieto o Abrumado',
-      delta: -5,
-      type: 'stress' as const,
-      color: 'hover:border-[#C89B84] hover:bg-[#C89B84]/10',
-    },
-    {
-      id: 'tired',
-      icon: Heart,
-      labelAr: 'مجهد وبحاجة لراحة',
-      labelEn: 'Tired / Seeking Rest',
-      labelFr: 'Fatigué / Besoin de Repos',
-      labelEs: 'Cansado / Busco Descanso',
-      delta: 5,
-      type: 'peace' as const,
-      color: 'hover:border-[#2C483F] hover:bg-[#2C483F]/10',
-    },
-  ];
-
-  const handleMoodSelect = (mood: typeof moods[0]) => {
-    if (mood.type === 'peace') {
-      playPeaceChime();
-    } else {
-      playStressReleaseTone();
-    }
-    const badgeText = getBadgeText(mood.delta, mood.type);
-    onAdjustScore(mood.delta, badgeText, mood.type);
-  };
-
-  const getMoodLabel = (m: typeof moods[0]) => {
-    if (lang === 'ar') return m.labelAr;
-    if (lang === 'fr') return m.labelFr;
-    if (lang === 'es') return m.labelEs;
-    return m.labelEn;
-  };
+  const isAr = lang === 'ar';
 
   const salutation = userProfile
     ? getAnasSalutation(userProfile, lang)
-    : lang === 'ar'
-    ? 'يا صاحبي الحبيب'
-    : 'Dear companion';
+    : isAr
+    ? 'أهلاً بك يا صاحبي الحبيب'
+    : 'Welcome, dear companion';
+
+  const handleOpenLab = () => {
+    playSoftTap();
+    if (onOpenMiniGameLab) {
+      onOpenMiniGameLab();
+    }
+  };
 
   return (
-    <section className="relative overflow-hidden pt-6 pb-8">
-      {/* Background Subtle Sand Arabesque Texture */}
-      <div className="absolute inset-0 bg-arabesque-pattern pointer-events-none opacity-40" />
+    <section className="relative overflow-hidden pt-6 pb-6 select-none">
+      {/* Background Subtle Sand Arabesque Pattern */}
+      <div className="absolute inset-0 bg-arabesque-pattern pointer-events-none opacity-30" />
 
-      {/* Radiant Rose-Gold Ambient Glows */}
+      {/* Radiant Subtle Warm Ambient Glows */}
       <div className="absolute top-1/4 -right-20 w-80 h-80 rounded-full bg-[#D4A373]/10 blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 -left-20 w-80 h-80 rounded-full bg-[#88C947]/10 blur-3xl pointer-events-none" />
 
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Main Card Surface with rounded-3xl and backdrop blur */}
-        <div className="bg-white/90 backdrop-blur-md rounded-3xl border border-[#D4A373]/30 p-6 sm:p-8 md:p-10 shadow-soft-lg">
+      <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        {/* ========================================================================= */}
+        {/* 1. WELCOME / RAFEEQ COMPANION FOCAL HERO */}
+        {/* ========================================================================= */}
+        <div className="bg-white/95 backdrop-blur-md rounded-3xl border border-[#D4A373]/30 p-6 sm:p-8 md:p-10 shadow-soft-lg transition-all">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-            {/* Left Column: Greeting, Typography, and Mood check-in */}
-            <div className="lg:col-span-8 space-y-6 text-start">
-              {/* Subtle Tagline / Track Badge */}
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#2C483F]/5 border border-[#D4A373]/30 text-xs font-semibold text-[#2C483F]">
-                <Sparkles className="w-3.5 h-3.5 text-[#D4A373]" />
-                <span>
-                  {t('hero.badge', lang)}
-                </span>
-                <span className="text-[#D4A373]">·</span>
-                <span className="text-[#88C947] font-bold">2026</span>
-              </div>
-
-              {/* Main Headline with Salutation */}
+            {/* Left Column: Greeting & Clear Mission Statement */}
+            <div className="lg:col-span-8 space-y-4 text-start">
+              {/* Main Headline */}
               <div>
-                <div className="text-sm font-bold text-[#88C947] mb-1">
+                <div className="text-sm sm:text-base font-bold text-[#88C947] mb-3">
                   {salutation} ✨
                 </div>
-                <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-[#2C483F] tracking-tight leading-tight">
-                  {t('hero.title_pre', lang)}{' '}
-                  <span className="text-[#2C483F] underline decoration-[#D4A373] decoration-4 underline-offset-8">
-                    {t('hero.title_highlight', lang)}
-                  </span>{' '}
-                  {t('hero.title_post', lang)}
-                </h2>
-                <p className="mt-4 text-base sm:text-lg text-[#2C483F]/80 leading-relaxed max-w-2xl font-normal">
-                  {t('hero.quote', lang)}
-                  <span className="block mt-1 text-xs text-[#D4A373] font-bold">
-                    {t('hero.quote_ref', lang)}
-                  </span>
-                </p>
-              </div>
-
-              {/* Interactive Mood Check-in Station */}
-              <div className="pt-2">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-bold text-[#2C483F] uppercase tracking-wider flex items-center gap-1.5">
-                    <Sun className="w-4 h-4 text-[#D4A373]" />
-                    <span>{t('hero.how_are_you', lang)}</span>
-                  </span>
-                  <span className="text-[11px] text-[#2C483F]/60 hidden">
-                    {lang === 'ar' ? 'يُحدّث مقياس السكينة تلقائياً' : 'Updates live tranquility'}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                  {moods.map((mood) => {
-                    const IconComp = mood.icon;
-                    return (
-                      <button
-                        key={mood.id}
-                        type="button"
-                        onClick={() => handleMoodSelect(mood)}
-                        className={`group relative flex items-center gap-2.5 p-3 rounded-2xl bg-[#FBF9F5] border border-[#D4A373]/25 transition-all duration-300 ${mood.color} hover:shadow-soft text-start`}
-                      >
-                        <div className="w-8 h-8 rounded-xl bg-white shadow-xs flex items-center justify-center text-[#2C483F] group-hover:scale-110 transition-transform">
-                          <IconComp className="w-4 h-4 text-[#2C483F]" />
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-xs font-bold text-[#2C483F] leading-tight">
-                            {getMoodLabel(mood)}
-                          </span>
-                          <span className="text-[10px] text-[#D4A373] font-semibold mt-0.5">
-                            {getBadgeText(mood.delta, mood.type)}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
+                <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-[#2C483F] tracking-tight leading-tight">
+                  {isAr
+                    ? 'ابدأ خطوتك الأولى في الإسلام بسكينة وتدرج دون حيرة أو شتات'
+                    : 'Begin your first step in Islam with tranquility and ease'}
+                </h1>
+                <div className="mt-3.5 space-y-1.5 max-w-2xl">
+                  <p className="text-sm sm:text-base text-[#2C483F] font-semibold leading-relaxed">
+                    {isAr
+                      ? '«إن هذا الدين يسر، ولن يشاد الدين أحد إلا غلبه، فسددوا وقاربوا وأبشروا»'
+                      : '"Indeed, this religion is easy, and no one overburdens themselves with it but that it overcomes them. So adhere to moderation and have glad tidings."'}
+                  </p>
+                  <p className="text-xs text-stone-500 font-bold">
+                    {isAr
+                      ? 'صحيح البخاري - وصية النبي ﷺ في الرفق والتدرج'
+                      : 'Sahih al-Bukhari — Prophetic advice on moderation and gradual growth'}
+                  </p>
                 </div>
               </div>
 
-              {/* Quick Call to Action Bar */}
+              {/* Quick Actions */}
               <div className="pt-2 flex flex-wrap items-center gap-3">
                 <button
                   type="button"
@@ -188,71 +85,84 @@ export const HeroCompanionSection: React.FC<HeroCompanionSectionProps> = ({
                     playSoftTap();
                     onOpenJourney();
                   }}
-                  className="px-6 py-3 rounded-2xl bg-[#2C483F] hover:bg-[#20362f] text-white text-sm font-bold shadow-soft hover:shadow-gold transition-all duration-300 flex items-center gap-2"
+                  className="px-5 py-2.5 rounded-2xl bg-[#2C483F] hover:bg-[#20362f] text-white text-xs sm:text-sm font-bold shadow-soft hover:shadow-gold transition-all duration-300 flex items-center gap-2 cursor-pointer active:scale-95"
                 >
-                  <Sparkles className="w-4 h-4 text-[#D4A373]" />
-                  <span>{t('hero.explore_btn', lang)}</span>
+                  <Compass className="w-4 h-4 text-[#D4A373]" />
+                  <span>{isAr ? 'استكشف مسار الأسبوع التأسيسي ↵' : 'Explore Foundational Journey ↵'}</span>
                 </button>
-
-                <div className="text-xs text-[#2C483F]/70 flex items-center gap-1.5 px-3 py-2 bg-[#FBF9F5] rounded-xl border border-[#D4A373]/20">
-                  <span className="w-2 h-2 rounded-full bg-[#88C947]" />
-                  <span>{t('nav.tranquility', lang)}: </span>
-                  <strong className="text-[#2C483F] font-mono">{score}%</strong>
-                </div>
               </div>
             </div>
 
-            {/* Right Column: 3D Mascot Anas Showcase & Interactive Speech */}
-            <div className="lg:col-span-4 flex flex-col items-center justify-center relative">
-              {/* Milestone Halo in Rose-Gold */}
-              <div className="relative p-6 rounded-3xl bg-gradient-to-b from-[#D4A373]/15 via-white/40 to-[#88C947]/10 border border-[#D4A373]/30 shadow-gold flex flex-col items-center text-center w-full max-w-sm">
-                {/* Upper Speech Bubble */}
-                <div className="w-full mb-4 bg-white/95 backdrop-blur-md rounded-2xl p-3 border border-[#D4A373]/30 shadow-soft text-center relative">
-                  <p className="text-sm font-bold text-[#2C483F]">
-                    {salutation}
+            {/* Right Column: Prominent Rafeeq Character Presentation */}
+            <div className="lg:col-span-4 flex flex-col items-center justify-center">
+              <div className="relative p-6 rounded-3xl bg-gradient-to-b from-[#D4A373]/15 via-white/60 to-[#88C947]/10 border border-[#D4A373]/30 shadow-soft flex flex-col items-center text-center w-full max-w-xs">
+                {/* Speech Bubble */}
+                <div className="w-full mb-3 bg-white/95 backdrop-blur-md rounded-2xl p-2.5 border border-[#D4A373]/30 shadow-xs text-center relative">
+                  <p className="text-xs font-bold text-[#2C483F]">
+                    {isAr ? '«يسروا ولا تعسروا، وبشروا ولا تنفروا»' : '"Make things easy and do not make them difficult"'}
                   </p>
-                  <p className="text-xs text-[#2C483F]/75 mt-0.5">
-                    {lang === 'ar'
-                      ? '«ألا بذكر الله تطمئن القلوب»'
-                      : lang === 'fr'
-                      ? '« N’est-ce point par l’évocation d’Allah que les cœurs s’apaisent ? »'
-                      : lang === 'es'
-                      ? '«¿Acaso no es con el recuerdo de Dios que se sosiegan los corazones?»'
-                      : '"Verily in the remembrance of Allah do hearts find rest"'}
-                  </p>
-                  {/* Speech bubble pointer */}
-                  <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white border-b border-r border-[#D4A373]/30 transform rotate-45" />
+                  <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white border-b border-r border-[#D4A373]/30 transform rotate-45" />
                 </div>
 
-                {/* Anas Large Animated 3D Avatar */}
-                <div className="py-2">
+                {/* Rafeeq Character Avatar with Gentle Float Animation */}
+                <div className="py-2 animate-float hover:scale-105 transition-transform duration-300 cursor-pointer" onClick={handleOpenLab}>
                   <AnasAvatar
-                    size="lg"
+                    size="xl"
                     lang={lang}
                     showGreetingBubble={false}
-                    className="cursor-pointer"
+                    className="filter drop-shadow-md"
                   />
                 </div>
 
-                <div className="mt-3">
-                  <h3 className="font-extrabold text-[#2C483F] text-base">
-                    {lang === 'ar' ? 'رفيق | رفيقك الأخضر' : 'Rafiq | Your Companion'}
+                <div className="mt-2 text-center">
+                  <h3 className="font-black text-[#2C483F] text-base">
+                    {isAr ? 'رفيق' : 'Rafeeq'}
                   </h3>
-                  <p className="text-xs text-[#2C483F]/70 mt-1 max-w-xs">
-                    {lang === 'ar'
-                      ? 'انقر على رفيق للتحية والاستماع إلى نبضات السكينة'
-                      : 'Tap Rafiq to converse and receive soothing reflections'}
-                  </p>
-                </div>
-
-                {/* Subtle Interactive Tap Hint */}
-                <div className="mt-4 pt-3 border-t border-[#D4A373]/20 w-full flex items-center justify-between text-[11px] text-[#D4A373] font-semibold">
-                  <span>{lang === 'ar' ? 'جاهز للمرافقة' : 'Ready to accompany'}</span>
-                  <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-[#88C947] animate-ping" />
-                    <span>{lang === 'ar' ? 'متاح الآن' : 'Online'}</span>
+                  <span className="text-[11px] text-[#D4A373] font-bold">
+                    {isAr ? 'رفيقك التفاعلي المساند' : 'Your Interactive Companion'}
                   </span>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ========================================================================= */}
+        {/* 2. RAFEEQ LAB — THE LARGE CONVERSATIONAL-STYLE ENTRY PANEL */}
+        {/* ========================================================================= */}
+        <div
+          onClick={handleOpenLab}
+          className="group relative overflow-hidden rounded-3xl bg-gradient-to-r from-white via-[#FAF7F0] to-white border-2 border-[#D4A373]/50 hover:border-[#D4A373] p-5 sm:p-7 shadow-soft hover:shadow-soft-lg transition-all duration-300 cursor-pointer text-start"
+        >
+          <div className="absolute top-0 end-0 -mt-8 -me-8 w-32 h-32 rounded-full bg-[#88C947]/10 blur-2xl pointer-events-none" />
+          <div className="absolute bottom-0 start-0 -mb-8 -ms-8 w-32 h-32 rounded-full bg-[#D4A373]/10 blur-2xl pointer-events-none" />
+
+          <div className="relative z-10 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+            {/* Left: Icon & Conversational Prompt */}
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[#2C483F] text-[#88C947] flex items-center justify-center text-xl shrink-0 shadow-soft group-hover:scale-105 transition-transform">
+                <MessageSquare className="w-6 h-6 text-[#D4A373]" />
+              </div>
+              <div className="space-y-1">
+                <span className="text-[11px] font-bold text-[#D4A373] uppercase tracking-wider block">
+                  {isAr ? 'مختبر رفيق' : 'Rafeeq Lab'}
+                </span>
+                <h3 className="text-base sm:text-xl font-black text-[#2C483F]">
+                  {isAr ? 'واجهت موقفًا أو استفسارًا في يومك؟ اسأل رفيق' : 'Faced a situation today? Ask Rafeeq'}
+                </h3>
+                <p className="text-xs text-stone-500 max-w-xl">
+                  {isAr
+                    ? 'اكتب أي موقف تواجهه في عملك، أسرتك، أو عبادتك ليوجّهك رفيق إلى التجربة المناسبة والتوجيه الشرعي المعتمد.'
+                    : 'Describe any situation in work, family, or worship to receive grounded guidance and matching simulations.'}
+                </p>
+              </div>
+            </div>
+
+            {/* Right: Dialogue-style Action Button */}
+            <div className="shrink-0 flex items-center">
+              <div className="w-full md:w-auto px-6 py-3.5 rounded-2xl bg-[#2C483F] group-hover:bg-[#1f352e] text-white font-bold text-xs sm:text-sm shadow-soft transition-all flex items-center justify-center gap-2 group-hover:gap-3">
+                <span>{isAr ? 'ابدأ' : 'Start'}</span>
+                <ArrowRight className="w-4 h-4 text-[#88C947] rtl:rotate-180 transition-transform group-hover:translate-x-1 rtl:group-hover:-translate-x-1" />
               </div>
             </div>
           </div>

@@ -176,7 +176,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
 
           {/* User Personalization & Addressing Layer (Requirement 1) */}
-          <div className="p-3.5 bg-[#FBF9F5] border border-[#D4A373]/30 rounded-2xl space-y-3">
+          <div className="hidden p-3.5 bg-[#FBF9F5] border border-[#D4A373]/30 rounded-2xl space-y-3">
             <div className="flex items-center justify-between border-b border-[#D4A373]/20 pb-2">
               <span className="flex items-center gap-1.5 font-bold text-[#2C483F]">
                 <User className="w-3.5 h-3.5 text-[#D4A373]" />
@@ -305,7 +305,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onResetScore();
                 playSoftTap();
               }}
-              className="text-[#D4A373] hover:text-[#B27C5A] underline text-xs font-semibold"
+              className="hidden text-[#D4A373] hover:text-[#B27C5A] underline text-xs font-semibold"
             >
               {lang === 'ar' ? 'إعادة ضبط مقياس السكينة (50%)' : 'Reset Tranquility Index (50%)'}
             </button>

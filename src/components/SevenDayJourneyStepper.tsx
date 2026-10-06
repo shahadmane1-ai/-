@@ -109,8 +109,8 @@ export const SevenDayJourneyStepper: React.FC<SevenDayJourneyStepperProps> = ({
             </div>
             <p className="text-xs text-stone-500 mt-0.5">
               {lang === 'ar'
-                ? 'الأسبوع التأسيسي في المدينة متعددة الثقافات: 14 تجربة حية و7 مهام واقعية'
-                : 'Foundational Week in Multicultural City: 14 real-life mini-games & 7 daily tasks'}
+                ? 'الأسبوع التأسيسي: محاكاة المواقف اليومية والمهام التطبيقية'
+                : 'Foundational Week: Real-life scenarios & daily practical steps'}
             </p>
           </div>
         </div>
@@ -235,9 +235,6 @@ export const SevenDayJourneyStepper: React.FC<SevenDayJourneyStepperProps> = ({
                       : `Day ${activeDay} Real-Life Experiences (2 Mini-Games):`}
                   </span>
                 </span>
-                <span className="text-[10px] font-mono text-stone-500">
-                  {lang === 'ar' ? 'الموقف أولاً ثم الشرح' : 'Interaction First'}
-                </span>
               </div>
 
               <div className="space-y-2.5">
@@ -313,9 +310,6 @@ export const SevenDayJourneyStepper: React.FC<SevenDayJourneyStepperProps> = ({
                   <span>
                     {lang === 'ar' ? `مهمة اليوم ${activeDay} الواقعية:` : `Day ${activeDay} Daily Task:`}
                   </span>
-                </span>
-                <span className="text-[10px] font-mono text-stone-500">
-                  {lang === 'ar' ? 'تطبيق حياتي' : 'Real-Life Action'}
                 </span>
               </div>
 

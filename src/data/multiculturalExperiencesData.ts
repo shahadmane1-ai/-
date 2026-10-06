@@ -289,7 +289,7 @@ export const MULTICULTURAL_TASKS: DailyTask[] = [
       en: 'Notice Prayer in Your Day',
     },
     description: {
-      ar: 'تأمل جدول يومك العادي، وحدد أين تتناغم أوقات الصلاة مع روتينك اليومي بكل سلاسة ويسر.',
+      ar: 'تأمل جدول يومك العادي، وحدد أين تتناغم أوقات الصلاة مع روتينك اليومي بكل سلاسة ويسر',
       en: 'Observe your daily routine and note where prayer times naturally and peacefully integrate into your day.',
     },
     promptAr: 'حدّد الفترات اليومية (الصباح، الظهر، العصر، المغرب، العشاء) التي تمنحك استراحة سكينة.',

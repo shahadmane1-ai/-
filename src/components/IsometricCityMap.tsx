@@ -36,6 +36,8 @@ import { playSoftTap, playPeaceChime } from '../utils/audio';
 import { getAdaptiveRecommendation } from '../services/adaptiveReinforcementService';
 import { getLearningState, resetLearningState } from '../services/learningStateManager';
 import { AdaptiveRecommendation } from '../types/scenarioKnowledge';
+import { RAFIC_INTERNAL_CATALOGUE } from '../services/raficInternalCatalogue';
+import { CONCEPT_LOCALIZATION_MAP } from '../services/scenarioConceptProfiles';
 
 // =========================================================================
 // BESPOKE 2.5D ISOMETRIC VECTOR ARCHITECTURAL BUILDINGS
@@ -257,6 +259,115 @@ const IsometricSchoolBuilding: React.FC = () => (
 );
 
 // =========================================================================
+// CONCEPT TRANSLATIONS LOOKUP DICTIONARY
+// =========================================================================
+const CONCEPT_TRANSLATIONS: Record<string, { ar: string; en: string }> = {
+  'Zakat Fitr Calculation Distribution': { ar: 'حساب وإخراج زكاة الفطر وتوزيعها', en: 'Zakat al-Fitr calculation and distribution' },
+  'zakat_fitr_calculation_distribution': { ar: 'حساب وإخراج زكاة الفطر وتوزيعها', en: 'Zakat al-Fitr calculation and distribution' },
+  'Travel Salah Concessions': { ar: 'رخص الصلاة في السفر والمشقة', en: 'Travel Salah Concessions' },
+  'travel_salah_concessions': { ar: 'رخص الصلاة في السفر والمشقة', en: 'Travel Salah Concessions' },
+  prayer_first_tashahhud_continuation: { ar: 'مواصلة القيام عند نسيان التشهد الأول', en: 'Continuing stand after forgetting first Tashahhud' },
+  doubt_in_rakah_base_certainty: { ar: 'البناء على اليقين عند الشك في الركعات', en: 'Building on certainty in Rak\'ah count doubt' },
+  involuntary_laughter_salah: { ar: 'السكوت وعدم الالتفات للضحك العارض في الصلاة', en: 'Ignoring involuntary laughter in Salah' },
+  forgetting_pillar_sujud: { ar: 'تدارك السجود المنسي في الركعة التالية', en: 'Remedying missed Sujud in the next Rak\'ah' },
+  combating_whispers_khanzab: { ar: 'التعوذ من وسوسة الشيطان (خنزب) في الصلاة', en: 'Seeking refuge from Khanzab whispers' },
+  cast_bandage_wiping: { ar: 'المسح على الجبيرة واللاصق الطبي', en: 'Wiping over medical casts and bandages' },
+  wudu_cold_weather_economy: { ar: 'إسباغ الوضوء في البرد القارس مع الاقتصاد', en: 'Proper minimal Wudu in freezing cold' },
+  compulsive_gas_doubt: { ar: 'تجاهل الشك في انتقاض الوضوء حتى اليقين', en: 'Ignoring purity doubts unless fully certain' },
+  tayammum_conditions: { ar: 'شروط رخصة التيمم عند فقد الماء', en: 'Conditions for Tayammum dry ablution' },
+  tayammum_action_sequence: { ar: 'صفة وحركات التيمم الصحيحة للوجه والكفين', en: 'Correct movements for face and hands in Tayammum' },
+  tayammum_face_hand_interaction: { ar: 'مسح الوجه واليدين في التيمم', en: 'Face & hands interaction in Tayammum' },
+  street_mud_garment_purity: { ar: 'طهارة الثياب من طين ورذاذ الشوارع', en: 'Purity of garments from street mud splashes' },
+  airplane_seated_prayer_posture: { ar: 'هيئة الصلاة جالساً على مقعد الطائرة لعذر', en: 'Praying seated on an airplane seat due to constraint' },
+  moving_train_prayer_qiblah: { ar: 'الصلاة وتحري القبلة في القطارات والحافلات', en: 'Praying and tracing Qiblah in high-speed trains' },
+  masbooq_joining_congregation: { ar: 'أحكام المسبوق في صلاة الجماعة مع الإمام', en: 'Masbooq rulings when entering group prayer' },
+  airport_waiting_prayer_adaptation: { ar: 'تأدية الصلاة في صالات المطار المزدحمة بوقار', en: 'Praying inside busy airport waiting areas with dignity' },
+  medical_surgical_prayer_combination: { ar: 'رخصة جمع الصلوات لعذر المرض والعمليات', en: 'Concession of combining prayers for medical surgery' },
+  neighbor_nonmuslim_gifts: { ar: 'قبول هدايا الجيران غير المسلمين في مناسباتهم بالمعروف', en: 'Accepting neighborly gifts from non-Muslims in kindness' },
+  declining_contract_usury_riba: { ar: 'رفض بنود الربا الصريح في العقود والتعاملات', en: 'Declining explicit interest clauses in contracts' },
+  buying_meat_non_muslim_supermarket: { ar: 'شراء لحوم الأغذية المباحة في البلاد غير الإسلامية', en: 'Buying permissible meats in foreign supermarkets' },
+  dining_table_alcohol_proximity: { ar: 'اجتناب الجلوس على موائد تقدم المحرمات', en: 'Avoiding sitting at dining tables serving prohibited items' },
+  honest_business_monopoly_avoidance: { ar: 'اجتناب الاحتكار التجاري والغش في المعاملات', en: 'Avoiding trade monopoly and unfair market practices' },
+  family_kind_advice_kindness: { ar: 'بر الوالدين وحسن مخاطبتهما عند الخلاف برفق', en: 'Filial kindness and gentle dialogue during disagreements' },
+  helping_needy_neighbors_rights: { ar: 'حق الجار وتفقد المحتاجين بصدق وسرية', en: 'Supporting needy neighbors with authentic discretion' },
+  halal_workplace_income_ethics: { ar: 'أخلاقيات كسب الرزق الحلال وإتقان العمل', en: 'Halal workplace income ethics and excellence' },
+  holding_faith_former_peers: { ar: 'الثبات على الإيمان أمام سخرية الرفاق السابقين', en: 'Holding firm to faith against former peer mockery' },
+  halal_work_uniform_modesty: { ar: 'التوفيق بين زي العمل الرياضي وضوابط المحتشمة', en: 'Reconciling workplace sports uniforms with modesty' },
+  gym_gaze_lowering_respect: { ar: 'حفظ وغض البصر في الأماكن المشتركة احتراماً', en: 'Lowering the gaze in shared spaces with respect' },
+  home_prayer_space_serenity: { ar: 'تهيئة مصلى هادئ وبسيط في المنزل للسكينة', en: 'Creating a quiet, humble prayer sanctuary at home' },
+  office_prayer_time_booking: { ar: 'ترتيب وجدولة وقت الصلاة بوضوح أثناء العمل', en: 'Scheduling and booking prayer times openly during office hours' },
+  non_arabic_recitation_concession: { ar: 'رخصة الأذكار باللسان لغير الناطقين بالعربية مؤقتاً', en: 'Concession of reciting praise for non-Arabic speakers' },
+  zakat_al_fitr_calculation: { ar: 'حساب وإخراج زكاة الفطر طعاماً وفق السنة المباركة', en: 'Calculating and giving Zakat al-Fitr in staple grain' },
+  pilgrimage_umrah: { ar: 'مناسك العمرة الطاهرة خطوة بخطوة', en: 'Clean Umrah pilgrimage rituals step-by-step' },
+  pilgrimage_hajj: { ar: 'مناسك الحج والتمتع الأكبر خطوة بخطوة', en: 'Hajj pilgrimage rituals step-by-step' },
+  umrah_ihram_miqat: { ar: 'أحكام الإحرام والميقات الشرعي للعمرة', en: 'Ihram and Miqat rulings for Umrah' },
+  umrah_tawaf_etiquette: { ar: 'سنن الطواف حول الكعبة وأدعيته المستحبة', en: 'Tawaf circuits around the Kaaba and etiquettes' },
+  umrah_sai_order: { ar: 'السعي المبارك بين الصفا والمروة بانتظام', en: 'Safa and Marwa Sa\'i run sequence' },
+  umrah_halq_taqsir: { ar: 'التحلل بالتقصير أو حلق الشعر تمهيداً للإتمام', en: 'Hair clipping (Taqsir/Halq) to release Ihram' },
+  hajj_ihram_mina: { ar: 'الإحرام للحج والتوجه ليوم التروية بمشعر منى', en: 'Hajj Ihram and heading to Mina for Tarwiyah day' },
+  hajj_arafat_standing: { ar: 'الوقوف الأكبر بعرفات والدعاء والتضرع لله', en: 'Great Standing of Arafat and prayers to Allah' },
+  hajj_muzdalifah_overnight: { ar: 'المبيت بمزدلفة وجمع الحصيات بوقار', en: 'Overnight stay in Muzdalifah and pebbles collection' },
+  hajj_jamarat_stoning: { ar: 'رمي الجمرات الثلاث ونبذ الشر والعدوان', en: 'Stoning the Jamarat pillars to reject evil' },
+  hajj_tawaf_ifadah: { ar: 'طواف الإفاضة وصلاة الركعتين خلف المقام', en: 'Tawaf al-Ifadah and prayers at Ibrahim station' }
+};
+
+interface LocalCompetencyConcept {
+  id: string;
+  title_ar: string;
+  title_en: string;
+}
+
+const LOCAL_COMPETENCY_CONCEPTS: LocalCompetencyConcept[] = [
+  { id: 'prayer_first_tashahhud_continuation', title_ar: 'مواصلة القيام عند نسيان التشهد الأول', title_en: 'Continuing stand after forgetting first Tashahhud' },
+  { id: 'doubt_in_rakah_base_certainty', title_ar: 'البناء على اليقين عند الشك في الركعات', title_en: 'Building on certainty in Rak\'ah count doubt' },
+  { id: 'involuntary_laughter_salah', title_ar: 'السكوت وعدم الالتفات للضحك العارض في الصلاة', title_en: 'Ignoring involuntary laughter in Salah' },
+  { id: 'forgetting_pillar_sujud', title_ar: 'تدارك السجود المنسي في الركعة التالية', title_en: 'Remedying missed Sujud in the next Rak\'ah' },
+  { id: 'combating_whispers_khanzab', title_ar: 'التعوذ من وسوسة الشيطان (خنزب) في الصلاة', title_en: 'Seeking refuge from Khanzab whispers' },
+  { id: 'cast_bandage_wiping', title_ar: 'المسح على الجبيرة واللاصق الطبي', title_en: 'Wiping over medical casts and bandages' },
+  { id: 'wudu_cold_weather_economy', title_ar: 'إسباغ الوضوء في البرد القارس مع الاقتصاد', title_en: 'Proper minimal Wudu in freezing cold' },
+  { id: 'compulsive_gas_doubt', title_ar: 'تجاهل الشك في انتقاض الوضوء حتى اليقين', title_en: 'Ignoring purity doubts unless fully certain' },
+  { id: 'tayammum_conditions', title_ar: 'شروط رخصة التيمم عند فقد الماء', title_en: 'Conditions for Tayammum dry ablution' },
+  { id: 'tayammum_action_sequence', title_ar: 'صفة وحركات التيمم الصحيحة للوجه والكفين', title_en: 'Correct movements for face and hands in Tayammum' },
+  { id: 'tayammum_face_hand_interaction', title_ar: 'مسح الوجه واليدين في التيمم', title_en: 'Face & hands interaction in Tayammum' },
+  { id: 'street_mud_garment_purity', title_ar: 'طهارة الثياب من طين ورذاذ الشوارع', title_en: 'Purity of garments from street mud splashes' },
+  { id: 'airplane_seated_prayer_posture', title_ar: 'هيئة الصلاة جالساً على مقعد الطائرة لعذر', title_en: 'Praying seated on an airplane seat due to constraint' },
+  { id: 'moving_train_prayer_qiblah', title_ar: 'الصلاة وتحري القبلة في القطارات والحافلات', title_en: 'Praying and tracing Qiblah in high-speed trains' },
+  { id: 'masbooq_joining_congregation', title_ar: 'أحكام المسبوق في صلاة الجماعة مع الإمام', title_en: 'Masbooq rulings when entering group prayer' },
+  { id: 'airport_waiting_prayer_adaptation', title_ar: 'تأدية الصلاة في صالات المطار المزدحمة بوقار', title_en: 'Praying inside busy airport waiting areas with dignity' },
+  { id: 'medical_surgical_prayer_combination', title_ar: 'رخصة جمع الصلوات لعذر المرض والعمليات', title_en: 'Concession of combining prayers for medical surgery' },
+  { id: 'neighbor_nonmuslim_gifts', title_ar: 'قبول هدايا الجيران غير المسلمين في مناسباتهم بالمعروف', title_en: 'Accepting neighborly gifts from non-Muslims in kindness' },
+  { id: 'declining_contract_usury_riba', title_ar: 'رفض بنود الربا الصريح في العقود والتعاملات', title_en: 'Declining explicit interest clauses in contracts' },
+  { id: 'buying_meat_non_muslim_supermarket', title_ar: 'شراء لحوم الأغذية المباحة في البلاد غير الإسلامية', title_en: 'Buying permissible meats in foreign supermarkets' },
+  { id: 'dining_table_alcohol_proximity', title_ar: 'اجتناب الجلوس على موائد تقدم المحرمات', title_en: 'Avoiding sitting at dining tables serving prohibited items' },
+  { id: 'honest_business_monopoly_avoidance', title_ar: 'اجتناب الاحتكار التجاري والغش في المعاملات', title_en: 'Avoiding trade monopoly and unfair market practices' },
+  { id: 'family_kind_advice_kindness', title_ar: 'بر الوالدين وحسن مخاطبتهما عند الخلاف برفق', title_en: 'Filial kindness and gentle dialogue during disagreements' },
+  { id: 'helping_needy_neighbors_rights', title_ar: 'حق الجار وتفقد المحتاجين بصدق وسرية', title_en: 'Supporting needy neighbors with authentic discretion' },
+  { id: 'halal_workplace_income_ethics', title_ar: 'أخلاقيات كسب الرزق الحلال وإتقان العمل', title_en: 'Halal workplace income ethics and excellence' },
+  { id: 'holding_faith_former_peers', title_ar: 'الثبات على الإيمان أمام سخرية الرفاق السابقين', title_en: 'Holding firm to faith against former peer mockery' },
+  { id: 'halal_work_uniform_modesty', title_ar: 'التوفيق بين زي العمل الرياضي وضوابط المحتشمة', title_en: 'Reconciling workplace sports uniforms with modesty' },
+  { id: 'gym_gaze_lowering_respect', title_ar: 'حفظ وغض البصر في الأماكن المشتركة احتراماً', title_en: 'Lowering the gaze in shared spaces with respect' },
+  { id: 'home_prayer_space_serenity', title_ar: 'تهيئة مصلى هادئ وبسيط في المنزل للسكينة', title_en: 'Creating a quiet, humble prayer sanctuary at home' },
+  { id: 'office_prayer_time_booking', title_ar: 'ترتيب وجدولة وقت الصلاة بوضوح أثناء العمل', title_en: 'Scheduling and booking prayer times openly during office hours' },
+  { id: 'non_arabic_recitation_concession', title_ar: 'رخصة الأذكار باللسان لغير الناطقين بالعربية مؤقتاً', title_en: 'Concession of reciting praise for non-Arabic speakers' },
+  { id: 'zakat_al_fitr_calculation', title_ar: 'حساب وإخراج زكاة الفطر طعاماً وفق السنة المباركة', title_en: 'Calculating and giving Zakat al-Fitr in staple grain' },
+  { id: 'pilgrimage_umrah', title_ar: 'مناسك العمرة الطاهرة خطوة بخطوة', title_en: 'Clean Umrah pilgrimage rituals step-by-step' },
+  { id: 'pilgrimage_hajj', title_ar: 'مناسك الحج والتمتع الأكبر خطوة بخطوة', title_en: 'Hajj pilgrimage rituals step-by-step' },
+  { id: 'umrah_ihram_miqat', title_ar: 'أحكام الإحرام والميقات الشرعي للعمرة', title_en: 'Ihram and Miqat rulings for Umrah' },
+  { id: 'umrah_tawaf_etiquette', title_ar: 'سنن الطواف حول الكعبة وأدعيته المستحبة', title_en: 'Tawaf circuits around the Kaaba and etiquettes' },
+  { id: 'umrah_sai_order', title_ar: 'السعي المبارك بين الصفا والمروة بانتظام', title_en: 'Safa and Marwa Sa\'i run sequence' },
+  { id: 'umrah_halq_taqsir', title_ar: 'التحلل بالتقصير أو حلق الشعر تمهيداً للإتمام', title_en: 'Hair clipping (Taqsir/Halq) to release Ihram' },
+  { id: 'hajj_ihram_mina', title_ar: 'الإحرام للحج والتوجه ليوم التروية بمشعر منى', title_en: 'Hajj Ihram and heading to Mina for Tarwiyah day' },
+  { id: 'hajj_arafat_standing', title_ar: 'الوقوف الأكبر بعرفات والدعاء والتضرع لله', title_en: 'Great Standing of Arafat and prayers to Allah' },
+  { id: 'hajj_muzdalifah_overnight', title_ar: 'المبيت بمزدلفة وجمع الحصيات بوقار', title_en: 'Overnight stay in Muzdalifah and pebbles collection' },
+  { id: 'hajj_jamarat_stoning', title_ar: 'رمي الجمرات الثلاث ونبذ الشر والعدوان', title_en: 'Stoning the Jamarat pillars to reject evil' },
+  { id: 'hajj_tawaf_ifadah', title_ar: 'طواف الإفاضة وصلاة الركعتين خلف المقام', title_en: 'Tawaf al-Ifadah and prayers at Ibrahim station' },
+  { id: 'Zakat Fitr Calculation Distribution', title_ar: 'حساب وإخراج زكاة الفطر وتوزيعها', title_en: 'Zakat al-Fitr calculation and distribution' },
+  { id: 'zakat_fitr_calculation_distribution', title_ar: 'حساب وإخراج زكاة الفطر وتوزيعها', title_en: 'Zakat al-Fitr calculation and distribution' },
+  { id: 'Travel Salah Concessions', title_ar: 'رخص الصلاة في السفر والمشقة', title_en: 'Travel Salah Concessions' },
+  { id: 'travel_salah_concessions', title_ar: 'رخص الصلاة في السفر والمشقة', title_en: 'Travel Salah Concessions' }
+];
+
+// =========================================================================
 // MAIN 2.5D ISOMETRIC CITY CANVAS
 // =========================================================================
 
@@ -311,6 +422,48 @@ export const IsometricCityMap: React.FC<IsometricCityMapProps> = ({
   const landmarks = CITY_LANDMARKS;
   const currentCityType = userProfile?.cityType || 'multicultural';
   const cityDetails = CITY_TYPES[currentCityType];
+
+  const getConceptDisplayName = (tagOrId: string): string => {
+    if (!tagOrId) return '';
+    
+    // Check if it's a Scenario ID like "SCN_001" or "SCN_1" or "scn_1"
+    const cleaned = tagOrId.toUpperCase().trim();
+    if (cleaned.startsWith('SCN_') || cleaned.startsWith('SCN')) {
+      const match = cleaned.match(/\d+/);
+      if (match) {
+        const numId = parseInt(match[0], 10);
+        const scenario = RAFIC_INTERNAL_CATALOGUE.find((s) => s.numericId === numId);
+        if (scenario) {
+          return lang === 'ar' ? scenario.conceptTitle : scenario.conceptTitleEn;
+        }
+      }
+    }
+    
+    // 1. Check local restructured mock array LOCAL_COMPETENCY_CONCEPTS
+    const foundLocal = LOCAL_COMPETENCY_CONCEPTS.find(
+      (c) => c.id.toLowerCase() === tagOrId.toLowerCase()
+    );
+    if (foundLocal) {
+      return lang === 'ar' ? foundLocal.title_ar : foundLocal.title_en;
+    }
+    
+    // 2. Check official CONCEPT_LOCALIZATION_MAP from scenarioConceptProfiles
+    const canonicalItem = CONCEPT_LOCALIZATION_MAP[tagOrId] || CONCEPT_LOCALIZATION_MAP[tagOrId.toLowerCase()];
+    if (canonicalItem) {
+      return lang === 'ar' ? canonicalItem.ar : canonicalItem.en;
+    }
+    
+    // 3. Check local CONCEPT_TRANSLATIONS dictionary
+    const translation = CONCEPT_TRANSLATIONS[tagOrId] || CONCEPT_TRANSLATIONS[tagOrId.toLowerCase()];
+    if (translation) {
+      return lang === 'ar' ? translation.ar : translation.en;
+    }
+    
+    // Fallback: replace underscores with spaces and capitalize
+    return tagOrId
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  };
 
   const handleLandmarkClick = (id: LandmarkId) => {
     playSoftTap();
@@ -369,53 +522,7 @@ export const IsometricCityMap: React.FC<IsometricCityMapProps> = ({
                   <span>Soon / قريبًا — تحت التطوير</span>
                 </span>
               )}
-              <span
-                className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${cityDetails.colorTheme.badgeBg} ${cityDetails.colorTheme.badgeText} ${cityDetails.colorTheme.border}`}
-              >
-                {cityDetails.badge[lang]}
-              </span>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#88C947]/20 text-[#2C483F] border border-[#88C947]/30">
-                {t('onboarding.difficulty_label', lang)}: {cityDetails.difficulty[lang]}
-              </span>
             </div>
-            <p className="text-xs text-[#2C483F]/70 mt-0.5">
-              {cityDetails.subtitle[lang]}
-            </p>
-          </div>
-        </div>
-
-        {/* Legend / Quick status & Change Environment Button */}
-        <div className="flex items-center gap-2.5 text-xs">
-          {onOpenProfile && (
-            <button
-              type="button"
-              onClick={() => {
-                playSoftTap();
-                onOpenProfile();
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#D4A373]/40 hover:border-[#D4A373] text-[#2C483F] font-bold shadow-xs hover:shadow-soft transition-all text-xs active:scale-95"
-              title={t('onboarding.edit_btn', lang)}
-            >
-              <Layers className="w-3.5 h-3.5 text-[#D4A373]" />
-              <span>
-                {lang === 'ar'
-                  ? 'تغيير البيئة الحضرية'
-                  : lang === 'fr'
-                  ? 'Changer de Ville'
-                  : lang === 'es'
-                  ? 'Cambiar Ciudad'
-                  : 'Switch Environment'}
-              </span>
-            </button>
-          )}
-
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FBF9F5] border border-[#D4A373]/30 text-[#2C483F] font-semibold">
-            <Sparkles className="w-3.5 h-3.5 text-[#D4A373]" />
-            <span>
-              {lang === 'ar'
-                ? 'مدينة تفاعلية حية (2.5D)'
-                : 'Living 2.5D Isometric City'}
-            </span>
           </div>
         </div>
       </div>
@@ -426,24 +533,27 @@ export const IsometricCityMap: React.FC<IsometricCityMapProps> = ({
       <div className="relative z-20 px-6 py-2.5 bg-gradient-to-r from-[#FAF7F0] via-white to-[#FAF7F0] border-b border-[#D4A373]/20 flex flex-wrap items-center justify-between gap-3 text-xs">
         {learningState.needs_reinforcement && learningState.needs_reinforcement.length > 0 ? (
           <div className="flex items-center gap-2 text-amber-900 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-300 shadow-xs animate-pulse">
-            <span className="font-black text-amber-800">⚡ رفيق التكيفي:</span>
+            <span className="font-black text-amber-800">🌿 رفيق:</span>
             <span className="font-bold">
               {lang === 'ar'
-                ? `تم رصد حاجة لتعزيز مفهوم «${learningState.needs_reinforcement[0]}» بناءً على تكرار الخطأ السابق`
-                : `Reinforcement needed for: ${learningState.needs_reinforcement[0]}`}
+                ? (adaptiveRec?.reason_ar || 'رفيق يقترح عليك تجربة قصيرة للتثبيت بناءً على ما تدربت عليه سابقًا.')
+                : (adaptiveRec?.reason_ar || 'Rafiq suggests a short exercise to reinforce what you practiced earlier.')}
             </span>
             {adaptiveRec && (
               <button
                 type="button"
                 onClick={() => {
                   playPeaceChime();
-                  if (onOpenHubExperience && adaptiveRec.related_city_experience) {
-                    onOpenHubExperience(adaptiveRec.related_city_experience as any);
+                  if (onOpenHubExperience) {
+                    const targetExp = adaptiveRec.related_city_experience || adaptiveRec.target_scenario_id;
+                    if (targetExp) {
+                      onOpenHubExperience(targetExp as any);
+                    }
                   }
                 }}
                 className="ms-1 px-2.5 py-1 rounded-lg bg-amber-700 hover:bg-amber-800 text-white font-black text-[10px] shadow-xs cursor-pointer transition-all hover:scale-105"
               >
-                {lang === 'ar' ? 'ابدأ التمرين التعزيزي ↵' : 'Start Exercise ↵'}
+                {lang === 'ar' ? 'ابدأ تجربة التثبيت ↵' : 'Start Reinforcement ↵'}
               </button>
             )}
           </div>
@@ -469,7 +579,7 @@ export const IsometricCityMap: React.FC<IsometricCityMapProps> = ({
           className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#2C483F] hover:bg-[#1f352e] text-white font-bold text-xs shadow-soft transition-all cursor-pointer hover:scale-102"
         >
           <Brain className="w-3.5 h-3.5 text-[#88C947]" />
-          <span>{lang === 'ar' ? 'سجل الكفاءة السلوكية (Matrix)' : 'Knowledge Matrix'}</span>
+          <span>{lang === 'ar' ? 'سجل المفاهيم المتقنة' : 'Mastered Concepts'}</span>
           <span className="px-1.5 py-0.2 rounded-full bg-white/20 text-[10px] font-mono font-bold">
             {learningState.mastered_concepts.length}
           </span>
@@ -635,10 +745,6 @@ export const IsometricCityMap: React.FC<IsometricCityMapProps> = ({
                   {isCompleted && (
                     <span className="w-2 h-2 rounded-full bg-[#88C947] shrink-0" title="Completed" />
                   )}
-
-                  <span className="text-[10px] font-mono opacity-70">
-                    {lang === 'ar' ? `يوم ${lm.dayAssociation}` : `D${lm.dayAssociation}`}
-                  </span>
                 </div>
               </button>
 
@@ -825,7 +931,7 @@ export const IsometricCityMap: React.FC<IsometricCityMapProps> = ({
               <div className="space-y-2.5">
                 <h4 className="text-xs font-black text-[#2C483F] flex items-center gap-1.5">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>{lang === 'ar' ? 'المفاهيم المتقنة (Mastered Concepts):' : 'Mastered Concepts:'}</span>
+                  <span>{lang === 'ar' ? 'المفاهيم المتقنة:' : 'Mastered Concepts:'}</span>
                 </h4>
 
                 {learningState.mastered_concepts.length === 0 ? (
@@ -840,7 +946,9 @@ export const IsometricCityMap: React.FC<IsometricCityMapProps> = ({
                         className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 font-bold flex items-center gap-1.5 shadow-xs"
                       >
                         <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
-                        <span>{concept}</span>
+                        <span className="concept-text">
+                          {lang === 'ar' ? getConceptDisplayName(concept) : getConceptDisplayName(concept)}
+                        </span>
                       </span>
                     ))}
                   </div>
@@ -851,7 +959,7 @@ export const IsometricCityMap: React.FC<IsometricCityMapProps> = ({
               <div className="space-y-2.5">
                 <h4 className="text-xs font-black text-amber-900 flex items-center gap-1.5">
                   <AlertTriangle className="w-4 h-4 text-amber-600" />
-                  <span>{lang === 'ar' ? 'مفاهيم قيد التعزيز والمراجعة (Active Reinforcement):' : 'Active Reinforcement:'}</span>
+                  <span>{lang === 'ar' ? 'مفاهيم قيد التعزيز والمراجعة:' : 'Active Reinforcement:'}</span>
                 </h4>
 
                 {learningState.needs_reinforcement.length === 0 ? (
@@ -867,7 +975,9 @@ export const IsometricCityMap: React.FC<IsometricCityMapProps> = ({
                         className="px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 font-bold flex items-center gap-1.5 shadow-xs"
                       >
                         <span>⚡</span>
-                        <span>{item}</span>
+                        <span className="concept-text">
+                          {lang === 'ar' ? getConceptDisplayName(item) : getConceptDisplayName(item)}
+                        </span>
                       </span>
                     ))}
                   </div>

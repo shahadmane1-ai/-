@@ -115,3 +115,130 @@ export function playSoftTap() {
     // Ignore
   }
 }
+
+/**
+ * Pebble thrown and hitting the Jamrah basin
+ */
+export function playPebbleThrow() {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    
+    // Quick swish followed by a ceramic stone click
+    const osc = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(320, now);
+    osc.frequency.exponentialRampToValueAtTime(140, now + 0.08);
+
+    gainNode.gain.setValueAtTime(0.08, now);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
+
+    osc.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.11);
+  } catch {
+    // Ignore
+  }
+}
+
+/**
+ * Resonant Takbeer chime ("Allahu Akbar")
+ */
+export function playTakbeerTone() {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    const osc1 = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(440, now);
+    osc1.frequency.exponentialRampToValueAtTime(554.37, now + 0.15); // C#
+
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(659.25, now); // E
+    osc2.frequency.exponentialRampToValueAtTime(880, now + 0.3); // A
+
+    gainNode.gain.setValueAtTime(0.001, now);
+    gainNode.gain.linearRampToValueAtTime(0.12, now + 0.05);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.8);
+
+    osc1.connect(gainNode);
+    osc2.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    osc1.start(now);
+    osc2.start(now);
+    osc1.stop(now + 0.85);
+    osc2.stop(now + 0.85);
+  } catch {
+    // Ignore
+  }
+}
+
+/**
+ * Water pouring sound for Zamzam
+ */
+export function playWaterPour() {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    for (let i = 0; i < 3; i++) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(600 + i * 220, now + i * 0.08);
+      osc.frequency.exponentialRampToValueAtTime(300 + i * 150, now + i * 0.08 + 0.1);
+
+      gain.gain.setValueAtTime(0.04, now + i * 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.08 + 0.12);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + i * 0.08);
+      osc.stop(now + i * 0.08 + 0.13);
+    }
+  } catch {
+    // Ignore
+  }
+}
+
+/**
+ * Victorious joyful fanfare upon completing all rites or passing quiz
+ */
+export function playFanfare() {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const notes = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6
+
+    notes.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const start = now + idx * 0.1;
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, start);
+
+      gain.gain.setValueAtTime(0.001, start);
+      gain.gain.linearRampToValueAtTime(0.1, start + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.6);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + 0.65);
+    });
+  } catch {
+    // Ignore
+  }
+}
